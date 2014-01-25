@@ -69,6 +69,8 @@
     <Compile Include="Security\V0_1\SecureChannel.cs" />
     <Compile Include="Security\V0_1\SecurityParameters.cs" />
     <Compile Include="Security\V0_1\SHA256PRF.cs" />
+    <Compile Include="Sockets\TPublisherSocket.cs" />
+    <Compile Include="Sockets\TSubscriberSocket.cs" />
     <Compile Include="Sockets\DealerSocket.cs" />
     <Compile Include="Devices\DeviceBase.cs" />
     <Compile Include="Devices\DeviceMode.cs" />
@@ -168,7 +170,9 @@
     <Compile Include="zmq\TcpAddress.cs" />
     <Compile Include="zmq\TcpConnecter.cs" />
     <Compile Include="zmq\TcpListener.cs" />
+    <Compile Include="zmq\TPub.cs" />
     <Compile Include="zmq\Trie.cs" />
+    <Compile Include="zmq\TSub.cs" />
     <Compile Include="zmq\Utils.cs" />
     <Compile Include="zmq\V1Decoder.cs" />
     <Compile Include="zmq\V1Encoder.cs" />

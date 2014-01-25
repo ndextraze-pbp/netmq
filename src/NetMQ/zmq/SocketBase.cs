@@ -155,6 +155,12 @@ namespace NetMQ.zmq
                 case ZmqSocketType.Stream:
                     s = new Stream(parent, tid, sid);
                     break;
+                case ZmqSocketType.Tpub:
+                    s = new TPub(parent, tid, sid);
+                    break;
+                case ZmqSocketType.Tsub:
+                    s = new TSub(parent, tid, sid);
+                    break;
                 default:
                     throw InvalidException.Create("type=" + type);
             }

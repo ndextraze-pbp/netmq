@@ -24,6 +24,8 @@ namespace NetMQ.zmq
         Xpub = 9,
         Xsub = 10,
         Stream = 11,
+        Tpub = 12,
+        Tsub = 13,
     }
 
     public enum ZmqSocketOptions
@@ -62,6 +64,12 @@ namespace NetMQ.zmq
         XpubVerbose = 40,
         RouterRawSocket = 41,
 
+        TSubToken = 42,
+        TPubSelect = 43,
+        TPubSubscribe=44,
+        TPubUnsubscribe=45,
+        TPubClear=46,
+
         Endian = 1000,
 
         [Obsolete]
@@ -69,6 +77,8 @@ namespace NetMQ.zmq
 
         [Obsolete]
         RouterBehavior = RouterMandatory,
+
+        
     }
 
     public enum Endianness

@@ -80,6 +80,10 @@ namespace NetMQ
                     return new XSubscriberSocket(socketHandle);
                 case ZmqSocketType.Stream:
                     return new StreamSocket(socketHandle);
+                case ZmqSocketType.Tpub:
+                    return new TPublisherSocket(socketHandle);
+                case ZmqSocketType.Tsub:
+                    return new TSubscriberSocket(socketHandle);
                 default:
                     throw new ArgumentOutOfRangeException("socketType");
             }
@@ -173,6 +177,13 @@ namespace NetMQ
             return new PublisherSocket(socketHandle);
         }
 
+        public TPublisherSocket CreateTPublisherSocket()
+        {
+            var socketHandle = ZMQ.Socket(m_ctx, ZmqSocketType.Tpub);
+
+            return new TPublisherSocket(socketHandle);
+        }
+
         /// <summary>
         /// Create pull socket
         /// </summary>
@@ -211,6 +222,13 @@ namespace NetMQ
             var socketHandle = ZMQ.Socket(m_ctx, ZmqSocketType.Stream);
 
             return new StreamSocket(socketHandle);
+        }
+
+        public TSubscriberSocket CreateTSubscriberSocket()
+        {
+            var socketHandle = ZMQ.Socket(m_ctx, ZmqSocketType.Tsub);
+
+            return new TSubscriberSocket(socketHandle);
         }
 
         public NetMQMonitor CreateMonitorSocket(string endpoint)

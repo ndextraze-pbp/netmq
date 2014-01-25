@@ -128,6 +128,12 @@ namespace NetMQ.zmq
                 case ZmqSocketType.Stream:
                     s = new Stream.StreamSession(ioThread, connect, socket, options, addr);
                     break;
+                case ZmqSocketType.Tpub:
+                    s = new TPub.TPubSession(ioThread, connect, socket, options, addr);
+                    break;
+                case ZmqSocketType.Tsub:
+                    s = new TSub.TSubSession(ioThread, connect, socket, options, addr);
+                    break;
                 default:
                     throw InvalidException.Create("type=" + options.SocketType);
 
