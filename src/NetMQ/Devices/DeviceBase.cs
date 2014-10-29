@@ -28,6 +28,7 @@ namespace NetMQ.Devices
 
         // Does the device own the m_poller.
         private readonly bool m_pollerIsOwned;
+        private bool m_isInitialized;
 
         public bool IsRunning { get; private set; }
 
@@ -70,6 +71,8 @@ namespace NetMQ.Devices
         /// <param name="poller">The <see cref="Poller"/> to use.</param>		
         protected DeviceBase(Poller poller, NetMQSocket frontendSocket, NetMQSocket backendSocket, DeviceMode mode)
         {
+            m_isInitialized = false;
+
             if (frontendSocket == null)
                 throw new ArgumentNullException("frontendSocket");
 
@@ -95,10 +98,19 @@ namespace NetMQ.Devices
                 : new ThreadedDeviceRunner(this);
         }
 
+        public void Initialize()
+        {
+            if (!m_isInitialized)
+            {
+                m_isInitialized = true;
+                FrontendSetup.Configure();
+                BackendSetup.Configure();
+            }
+        }
+
         public void Start()
         {
-            FrontendSetup.Configure();
-            BackendSetup.Configure();
+            Initialize();
             m_runner.Start();
         }
 
