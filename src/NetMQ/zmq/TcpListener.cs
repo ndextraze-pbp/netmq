@@ -25,20 +25,23 @@ using System.Net.Sockets;
 using System.Diagnostics;
 using System.Security;
 using System.Runtime.InteropServices;
+using AsyncIO;
 
 namespace NetMQ.zmq
 {
-    public class TcpListener : Own, IPollEvents
+    public class TcpListener : Own, IProcatorEvents
     {
         private const SocketOptionName IPv6Only = (SocketOptionName) 27;
-
 
         //private static Logger LOG = LoggerFactory.getLogger(TcpListener.class);
         //  Address to listen on.
         private readonly TcpAddress m_address;
 
         //  Underlying socket.
-        private Socket m_handle;
+        private AsyncSocket m_handle;
+
+        // socket being accepted
+        private AsyncSocket m_acceptedSocket;
 
         //  Socket the listerner belongs to.
         private readonly SocketBase m_socket;
@@ -69,96 +72,16 @@ namespace NetMQ.zmq
 
         protected override void ProcessPlug()
         {
-            //  Start polling for incoming connections.
             m_ioObject.SetHandler(this);
-            m_ioObject.AddFd(m_handle);
-            m_ioObject.SetPollin(m_handle);
+            m_ioObject.AddSocket(m_handle);
         }
-
 
         protected override void ProcessTerm(int linger)
         {
             m_ioObject.SetHandler(this);
-            m_ioObject.RmFd(m_handle);
+            m_ioObject.RemoveSocket(m_handle);
             Close();
             base.ProcessTerm(linger);
-        }
-
-
-        public void InEvent()
-        {
-            Socket fd;
-
-            try
-            {
-                fd = Accept();
-                Utils.TuneTcpSocket(fd);
-                Utils.TuneTcpKeepalives(fd, m_options.TcpKeepalive, m_options.TcpKeepaliveCnt, m_options.TcpKeepaliveIdle, m_options.TcpKeepaliveIntvl);
-            }
-            catch (NetMQException ex)
-            {
-                //  If connection was reset by the peer in the meantime, just ignore it.
-                //  TODO: Handle specific errors like ENFILE/EMFILE etc.
-                //ZError.exc (e);
-                m_socket.EventAcceptFailed(m_endpoint, ex.ErrorCode);
-                return;
-            }
-
-
-            //  Create the engine object for this connection.
-            StreamEngine engine;
-            try
-            {
-                engine = new StreamEngine(fd, m_options, m_endpoint);
-            }
-            catch (SocketException ex)
-            {
-                //LOG.error("Failed to initialize StreamEngine", e.getCause());
-
-                ErrorCode errorCode = ErrorHelper.SocketErrorToErrorCode(ex.SocketErrorCode);
-
-                m_socket.EventAcceptFailed(m_endpoint, errorCode);
-                throw NetMQException.Create(errorCode);
-            }
-            //  Choose I/O thread to run connecter in. Given that we are already
-            //  running in an I/O thread, there must be at least one available.
-            IOThread ioThread = ChooseIOThread(m_options.Affinity);
-
-            //  Create and launch a session object. 
-            SessionBase session = SessionBase.Create(ioThread, false, m_socket,
-                                                     m_options, new Address(m_handle.LocalEndPoint));
-            session.IncSeqnum();
-            LaunchChild(session);
-            SendAttach(session, engine, false);
-            m_socket.EventAccepted(m_endpoint, fd);
-        }
-
-
-        //  Close the listening socket.
-        private void Close()
-        {
-            if (m_handle == null)
-                return;
-
-            try
-            {
-                m_handle.Close();
-                m_socket.EventClosed(m_endpoint, m_handle);
-            }
-            catch (SocketException ex)
-            {
-                m_socket.EventCloseFailed(m_endpoint, ErrorHelper.SocketErrorToErrorCode(ex.SocketErrorCode));
-            }
-            catch (NetMQException ex)
-            {
-                m_socket.EventCloseFailed(m_endpoint, ex.ErrorCode);
-            }
-            m_handle = null;
-        }
-
-        public virtual String Address
-        {
-            get { return m_address.ToString(); }
         }
 
         //  Set address to listen on. return the used port
@@ -169,8 +92,7 @@ namespace NetMQ.zmq
             m_endpoint = m_address.ToString();
             try
             {
-                m_handle =
-                    new Socket(m_address.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                m_handle = AsyncSocket.Create(m_address.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
                 if (!m_options.IPv4Only && m_address.Address.AddressFamily == AddressFamily.InterNetworkV6)
                 {
@@ -180,84 +102,131 @@ namespace NetMQ.zmq
                         m_handle.SetSocketOption(SocketOptionLevel.IPv6, IPv6Only, 0);
                     }
                     catch
-                    {                        
+                    {
                     }
                 }
-
-                //handle.Blocking = false;
 
                 m_handle.ExclusiveAddressUse = false;
                 m_handle.Bind(m_address.Address);
                 m_handle.Listen(m_options.Backlog);
+
+                m_socket.EventListening(m_endpoint, m_handle);
+
+                m_port = m_handle.LocalEndPoint.Port;
+                
+                Accept();
             }
             catch (SocketException ex)
             {
                 Close();
                 throw NetMQException.Create(ex);
+            }            
+        }
+
+        private void Accept()
+        {
+            m_acceptedSocket = AsyncSocket.Create(m_address.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+            // start accepting socket async
+            m_handle.Accept(m_acceptedSocket);            
+        }
+
+        public void InCompleted(SocketError socketError, int bytesTransferred)
+        {
+            if (socketError != SocketError.Success)
+            {
+                if (socketError == SocketError.ConnectionReset || socketError == SocketError.NoBufferSpaceAvailable ||
+                    socketError == SocketError.TooManyOpenSockets)
+                {
+                    m_socket.EventAcceptFailed(m_endpoint, ErrorHelper.SocketErrorToErrorCode(socketError));
+
+                    Accept();
+                }
+                else
+                {
+                    m_acceptedSocket.Dispose();
+
+                    ErrorCode errorCode = ErrorHelper.SocketErrorToErrorCode(socketError);
+
+                    m_socket.EventAcceptFailed(m_endpoint, errorCode);
+                    throw NetMQException.Create(errorCode);
+                }
+            }
+            else
+            {
+                // TODO: check TcpFilters
+
+                m_acceptedSocket.NoDelay = true;
+
+                Utils.TuneTcpSocket(m_acceptedSocket);
+                Utils.TuneTcpKeepalives(m_acceptedSocket, m_options.TcpKeepalive, m_options.TcpKeepaliveCnt, m_options.TcpKeepaliveIdle, m_options.TcpKeepaliveIntvl);
+
+                //  Create the engine object for this connection.
+                StreamEngine engine = new StreamEngine(m_acceptedSocket, m_options, m_endpoint);
+
+                //  Choose I/O thread to run connecter in. Given that we are already
+                //  running in an I/O thread, there must be at least one available.
+                IOThread ioThread = ChooseIOThread(m_options.Affinity);
+
+                //  Create and launch a session object. 
+                // TODO: send null in address parameter, is unneed in this case
+                SessionBase session = SessionBase.Create(ioThread, false, m_socket, m_options, new Address(m_handle.LocalEndPoint));
+                session.IncSeqnum();
+                LaunchChild(session);
+
+                SendAttach(session, engine, false);
+
+                m_socket.EventAccepted(m_endpoint, m_acceptedSocket);
+
+                Accept();
+            }
+        }
+
+        //  Close the listening socket.
+        private void Close()
+        {
+            if (m_handle == null)
+                return;
+
+            try
+            {
+                m_handle.Dispose();
+                m_socket.EventClosed(m_endpoint, m_handle);
+            }
+            catch (SocketException ex)
+            {
+                m_socket.EventCloseFailed(m_endpoint, ErrorHelper.SocketErrorToErrorCode(ex.SocketErrorCode));
             }
 
-            m_socket.EventListening(m_endpoint, m_handle);
+            try
+            {
+                m_acceptedSocket.Dispose();
+            }
+            catch (SocketException)
+            {                                
+            }
 
-            m_port = ((IPEndPoint)m_handle.LocalEndPoint).Port;
+            m_acceptedSocket = null;
+            m_handle = null;
         }
+
+        public virtual String Address
+        {
+            get { return m_address.ToString(); }
+        }        
 
         public virtual int Port
         {
             get { return m_port; }
         }
 
-        //  Accept the new connection. Returns the file descriptor of the
-        //  newly created connection. The function may return retired_fd
-        //  if the connection was dropped while waiting in the listen backlog
-        //  or was denied because of accept filters.
-        private Socket Accept()
+        void IProcatorEvents.OutCompleted(SocketError socketError, int bytesTransferred)
         {
-            Socket sock = null;
-            try
-            {
-                sock = m_handle.Accept();
-            }
-            catch (SocketException)
-            {
-                return null;
-            }
-
-            if (m_options.TcpAcceptFilters.Count > 0)
-            {
-                bool matched = false;
-                foreach (TcpAddress.TcpAddressMask am in m_options.TcpAcceptFilters)
-                {
-                    if (am.MatchAddress(m_address.Address))
-                    {
-                        matched = true;
-                        break;
-                    }
-                }
-                if (!matched)
-                {
-                    try
-                    {
-                        sock.Close();
-                    }
-                    catch (SocketException)
-                    {
-                    }
-                    return null;
-                }
-            }
-            return sock;
+            throw new NotImplementedException();
         }
 
 
-
-
-        public void OutEvent()
-        {
-            throw new NotSupportedException();
-        }
-
-
-        public void TimerEvent(int id)
+        void IProcatorEvents.TimerEvent(int id)
         {
             throw new NotSupportedException();
         }

@@ -27,6 +27,8 @@ using System.Net.Sockets;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using AsyncIO;
+using NetMQ.zmq.PGM;
 
 namespace NetMQ.zmq
 {
@@ -1117,6 +1119,8 @@ namespace NetMQ.zmq
                 //  Notify the reaper about the fact.
                 SendReaped();
 
+                Console.WriteLine("{0} Reaped", ThreadId);
+
                 //  Deallocate.
                 base.ProcessDestroy();
 
@@ -1237,7 +1241,7 @@ namespace NetMQ.zmq
             }
         }
 
-        public void EventConnected(String addr, Socket ch)
+        public void EventConnected(String addr, AsyncSocket ch)
         {
             if ((m_monitorEvents & SocketEvent.Connected) == 0)
                 return;
@@ -1261,7 +1265,7 @@ namespace NetMQ.zmq
             MonitorEvent(new MonitorEvent(SocketEvent.ConnectRetried, addr, interval));
         }
 
-        public void EventListening(String addr, Socket ch)
+        public void EventListening(String addr, AsyncSocket ch)
         {
             if ((m_monitorEvents & SocketEvent.Listening) == 0)
                 return;
@@ -1277,7 +1281,7 @@ namespace NetMQ.zmq
             MonitorEvent(new MonitorEvent(SocketEvent.BindFailed, addr, errno));
         }
 
-        public void EventAccepted(String addr, Socket ch)
+        public void EventAccepted(String addr, AsyncSocket ch)
         {
             if ((m_monitorEvents & SocketEvent.Accepted) == 0)
                 return;
@@ -1293,7 +1297,7 @@ namespace NetMQ.zmq
             MonitorEvent(new MonitorEvent(SocketEvent.AcceptFailed, addr, errno));
         }
 
-        public void EventClosed(String addr, Socket ch)
+        public void EventClosed(String addr, AsyncSocket ch)
         {
             if ((m_monitorEvents & SocketEvent.Closed) == 0)
                 return;
@@ -1309,7 +1313,7 @@ namespace NetMQ.zmq
             MonitorEvent(new MonitorEvent(SocketEvent.CloseFailed, addr, errno));
         }
 
-        public void EventDisconnected(String addr, Socket ch)
+        public void EventDisconnected(String addr, AsyncSocket ch)
         {
             if ((m_monitorEvents & SocketEvent.Disconnected) == 0)
                 return;
