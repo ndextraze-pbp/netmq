@@ -8,8 +8,8 @@ namespace NetMQ.Sockets
 {
     public class StreamSocket : NetMQSocket
     {
-        public StreamSocket(SocketBase socketHandle)
-            : base(socketHandle)
+        public StreamSocket(SocketBase socketBase)
+            : base(socketBase)
         {
         }
 

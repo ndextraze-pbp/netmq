@@ -10,8 +10,8 @@ namespace NetMQ.Sockets
     /// </summary>
     public class SubscriberSocket : NetMQSocket
     {
-        public SubscriberSocket(SocketBase socketHandle)
-            : base(socketHandle)
+        public SubscriberSocket(SocketBase socketBase)
+            : base(socketBase)
         {
         }
 

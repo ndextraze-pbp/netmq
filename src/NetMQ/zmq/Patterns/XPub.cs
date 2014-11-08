@@ -26,7 +26,7 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class XPub : SocketBase
+    class XPub : BasePattern
     {
 
         public class XPubSession : SessionBase
@@ -74,7 +74,7 @@ namespace NetMQ.zmq.Patterns
 
                 XPub self = (XPub)arg;
 
-                if (self.m_options.SocketType != ZmqSocketType.Pub)
+                if (self.Options.SocketType != ZmqSocketType.Pub)
                 {
 
                     //  Place the unsubscription to the queue of pending (un)sunscriptions
@@ -88,11 +88,11 @@ namespace NetMQ.zmq.Patterns
             };
         }
 
-        public XPub(Ctx parent, int threadId, int socketId)
-            : base(parent, threadId, socketId)
+        public XPub(SocketBase socket)
+            : base(socket)
         {
 
-            m_options.SocketType = ZmqSocketType.Xpub;
+            Options.SocketType = ZmqSocketType.Xpub;
             m_verbose = false;
             m_more = false;
 
@@ -101,22 +101,22 @@ namespace NetMQ.zmq.Patterns
             m_pending = new Queue<Blob>();
         }        
 
-        protected override void XAttachPipe(Pipe pipe, bool icanhasall)
+        public override void AddPipe(Pipe pipe, bool subscribeToAll)
         {
             Debug.Assert(pipe != null);
             m_distribution.Attach(pipe);
 
             //  If icanhasall_ is specified, the caller would like to subscribe
             //  to all data on this pipe, implicitly.
-            if (icanhasall)
+            if (subscribeToAll)
                 m_subscriptions.Add(null,0,0, pipe);
 
             //  The pipe is active when attached. Let's read the subscriptions from
             //  it, if any.
-            XReadActivated(pipe);
+            ReadActivated(pipe);
         }
 
-        protected override void XReadActivated(Pipe pipe)
+        public override void ReadActivated(Pipe pipe)
         {
             //  There are some subscriptions waiting. Let's process them.
             Msg sub = new Msg();
@@ -136,7 +136,7 @@ namespace NetMQ.zmq.Patterns
 
                     //  If the subscription is not a duplicate, store it so that it can be
                     //  passed to used on next recv call.
-                    if (m_options.SocketType == ZmqSocketType.Xpub && (unique || m_verbose))
+                    if (Options.SocketType == ZmqSocketType.Xpub && (unique || m_verbose))
                         m_pending.Enqueue(new Blob(sub.Data, sub.Size));
                 }
                 else // process message unrelated to sub/unsub
@@ -148,12 +148,12 @@ namespace NetMQ.zmq.Patterns
             }
         }
 
-        protected override void XWriteActivated(Pipe pipe)
+        public override void WriteActivated(Pipe pipe)
         {
             m_distribution.Activated(pipe);
         }
 
-        protected override bool XSetSocketOption(ZmqSocketOptions option, Object optval)
+        public override bool SetOption(ZmqSocketOptions option, Object optval)
         {
             if (option == ZmqSocketOptions.XpubVerbose)
             {
@@ -164,7 +164,7 @@ namespace NetMQ.zmq.Patterns
             return false;
         }
 
-        protected override void XTerminated(Pipe pipe)
+        public override void RemovePipe(Pipe pipe)
         {
             //  Remove the pipe from the trie. If there are topics that nobody
             //  is interested in anymore, send corresponding unsubscriptions
@@ -176,7 +176,7 @@ namespace NetMQ.zmq.Patterns
             m_distribution.Terminated(pipe);
         }
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             bool msgMore = msg.HasMore;
 
@@ -200,12 +200,12 @@ namespace NetMQ.zmq.Patterns
         }
 
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             return m_distribution.HasOut();
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {
             //  If there is at least one 
             if (m_pending.Count == 0)
@@ -223,9 +223,14 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {
             return m_pending.Count != 0;
+        }
+
+        public override void Hiccuped(Pipe pipe)
+        {
+            throw new NotSupportedException();
         }
     }
 }

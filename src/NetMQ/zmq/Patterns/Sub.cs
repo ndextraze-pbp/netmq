@@ -38,17 +38,17 @@ namespace NetMQ.zmq.Patterns
 
         }
 
-        public Sub(Ctx parent, int threadId, int socketId)
-            : base(parent, threadId, socketId)
+        public Sub(SocketBase socket)
+            : base(socket)
         {
-            m_options.SocketType = ZmqSocketType.Sub;
+            Options.SocketType = ZmqSocketType.Sub;
 
             //  Switch filtering messages on (as opposed to XSUB which where the
             //  filtering is off).
-            m_options.Filter = true;
+            Options.Filter = true;
         }
 
-        protected override bool XSetSocketOption(ZmqSocketOptions option, Object optval)
+        public override bool SetOption(ZmqSocketOptions option, Object optval)
         {
             if (option != ZmqSocketOptions.Subscribe && option != ZmqSocketOptions.Unsubscribe)
             {
@@ -76,7 +76,7 @@ namespace NetMQ.zmq.Patterns
             try
             {
                 //  Pass it further on in the stack.
-                bool isMessageSent = base.XSend(ref msg, 0);
+                bool isMessageSent = base.Send(ref msg, 0);
 
                 if (!isMessageSent)
                 {
@@ -91,13 +91,13 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             //  Overload the XSUB's send.
             throw new NotSupportedException("Send not supported on sub socket");
         }
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             //  Overload the XSUB's send.
             return false;

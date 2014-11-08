@@ -29,7 +29,7 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Stream : SocketBase
+    class Stream : BasePattern
     {
         public class StreamSession : SessionBase
         {
@@ -81,10 +81,10 @@ namespace NetMQ.zmq.Patterns
 
         //  Peer ID are generated. It's a simple increment and wrap-over
         //  algorithm. This value is the next ID to use (if not used already).
-        private int m_nextPeerId;        
+        private int m_nextPeerId;
 
-        public Stream(Ctx parent, int threadId, int socketId)
-            : base(parent, threadId, socketId)
+        public Stream(SocketBase socket)
+            : base(socket)
         {
             m_prefetched = false;
             m_identitySent = false;
@@ -92,7 +92,7 @@ namespace NetMQ.zmq.Patterns
             m_moreOut = false;
             m_nextPeerId = new Random().Next();
 
-            m_options.SocketType = ZmqSocketType.Stream;
+            Options.SocketType = ZmqSocketType.Stream;
 
             m_fairQueueing = new FairQueueing();
             m_prefetchedId = new Msg();
@@ -102,18 +102,18 @@ namespace NetMQ.zmq.Patterns
 
             m_outpipes = new Dictionary<Blob, Outpipe>();
 
-            m_options.RawSocket = true;
+            Options.RawSocket = true;
         }
 
-        public override void Destroy()
+        public override void Dispose()
         {
-            base.Destroy();
+            base.Dispose();
 
             m_prefetchedId.Close();
             m_prefetchedMsg.Close();
         }
 
-        protected override void XAttachPipe(Pipe pipe, bool icanhasall)
+        public override void AddPipe(Pipe pipe, bool subscribeToAll)
         {
             Debug.Assert(pipe != null);
 
@@ -121,7 +121,7 @@ namespace NetMQ.zmq.Patterns
             m_fairQueueing.Attach(pipe);
         }
 
-        protected override void XTerminated(Pipe pipe)
+        public override void RemovePipe(Pipe pipe)
         {
             Outpipe old;
 
@@ -135,12 +135,12 @@ namespace NetMQ.zmq.Patterns
                 m_currentOut = null;
         }
 
-        protected override void XReadActivated(Pipe pipe)
+        public override void ReadActivated(Pipe pipe)
         {
             m_fairQueueing.Activated(pipe);
         }
 
-        protected override void XWriteActivated(Pipe pipe)
+        public override void WriteActivated(Pipe pipe)
         {
             Outpipe outpipe = null;
 
@@ -159,7 +159,7 @@ namespace NetMQ.zmq.Patterns
         }
 
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             //  If this is the first part of the message it's the ID of the
             //  peer to send the message to.
@@ -236,7 +236,7 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {
             if (m_prefetched)
             {
@@ -280,7 +280,7 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {
             //  We may already have a message pre-fetched.
             if (m_prefetched)
@@ -312,7 +312,7 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             //  In theory, STREAM socket is always ready for writing. Whether actual
             //  attempt to write succeeds depends on whitch pipe the message is going
@@ -332,13 +332,18 @@ namespace NetMQ.zmq.Patterns
 
             Buffer.BlockCopy(result, 0, buf, 1, 4);
             identity = new Blob(buf, buf.Length);
-            m_options.Identity = buf;
-            m_options.IdentitySize = (byte)buf.Length;
+            Options.Identity = buf;
+            Options.IdentitySize = (byte)buf.Length;
 
             pipe.Identity = identity;
             //  Add the record into output pipes lookup table
             Outpipe outpipe = new Outpipe(pipe, true);
             m_outpipes.Add(identity, outpipe);
+        }
+
+        public override void Hiccuped(Pipe pipe)
+        {
+            throw new NotSupportedException();
         }
     }
 }

@@ -19,12 +19,13 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+using System;
 using System.Diagnostics;
 using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Push : SocketBase
+    class Push : BasePattern
     {
         public class PushSession : SessionBase
         {
@@ -39,37 +40,58 @@ namespace NetMQ.zmq.Patterns
         //  Load balancer managing the outbound pipes.
         private readonly LoadBalancer m_loadBalancer;
 
-        public Push(Ctx parent, int threadId, int socketId) : base(parent, threadId, socketId)
+        public Push(SocketBase socket)
+            : base(socket)
         {
-            m_options.SocketType = ZmqSocketType.Push;
+            Options.SocketType = ZmqSocketType.Push;
 
             m_loadBalancer = new LoadBalancer();
         }
 
-        protected override void XAttachPipe(Pipe pipe, bool icanhasall)
+        public override void AddPipe(Pipe pipe, bool subscribeToAll)
         {
             Debug.Assert(pipe != null);
             m_loadBalancer.Attach(pipe);
         }
 
-        protected override void XWriteActivated(Pipe pipe)
+        public override void WriteActivated(Pipe pipe)
         {
             m_loadBalancer.Activated(pipe);
         }
 
-        protected override void XTerminated(Pipe pipe)
+        public override void RemovePipe(Pipe pipe)
         {
             m_loadBalancer.Terminated(pipe);
         }
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             return m_loadBalancer.Send(ref msg, flags);
         }
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             return m_loadBalancer.HasOut();
+        }
+
+        public override bool HasIn()
+        {
+            return false;
+        }
+
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void ReadActivated(Pipe pipe)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Hiccuped(Pipe pipe)
+        {
+            throw new NotSupportedException();
         }
     }
 }

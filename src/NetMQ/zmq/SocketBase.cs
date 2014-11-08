@@ -37,7 +37,7 @@ using TcpListener = NetMQ.zmq.Transports.Tcp.TcpListener;
 
 namespace NetMQ.zmq
 {
-    public abstract class SocketBase : Own, IPollEvents, Pipe.IPipeEvents
+    public class SocketBase : Own, IDisposable, IPollEvents, Pipe.IPipeEvents
     {
         private readonly Dictionary<String, Own> m_endpoints;
 
@@ -46,7 +46,7 @@ namespace NetMQ.zmq
         private bool m_disposed;
 
         //  If true, associated context was already terminated.
-        private bool m_ctxTerminated;
+        private bool m_contextTerminated;
 
         //  If true, object should have been already destroyed. However,
         //  destruction is delayed while we unwind the stack to the point
@@ -64,13 +64,13 @@ namespace NetMQ.zmq
         private Socket m_handle;
 
         //  Timestamp of when commands were processed the last time.
-        private long m_lastTsc;
+        private long m_lastProcessed;
 
         //  Number of messages received since last command processing.
-        private int m_ticks;
+        private int m_receiveTicks;
 
         //  True if the last message received had MORE flag set.
-        private bool m_rcvMore;
+        private bool m_receiveMore;
 
         // Monitor socket
         private SocketBase m_monitorSocket;
@@ -81,15 +81,17 @@ namespace NetMQ.zmq
         // The tcp port that was bound to, if any
         private int m_port;
 
-        protected SocketBase(Ctx parent, int threadId, int socketId)
+        private BasePattern m_pattern;
+
+        public SocketBase(ZmqSocketType type, Ctx parent, int threadId, int socketId)
             : base(parent, threadId)
         {
             m_disposed = false;
-            m_ctxTerminated = false;
+            m_contextTerminated = false;
             m_destroyed = false;
-            m_lastTsc = 0;
-            m_ticks = 0;
-            m_rcvMore = false;
+            m_lastProcessed = 0;
+            m_receiveTicks = 0;
+            m_receiveMore = false;
             m_monitorSocket = null;
             m_monitorEvents = 0;
 
@@ -100,165 +102,127 @@ namespace NetMQ.zmq
             m_pipes = new List<Pipe>();
 
             m_mailbox = new Mailbox("socket-" + socketId);
-        }
-
-        //  Concrete algorithms for the x- methods are to be defined by
-        //  individual socket types.
-        abstract protected void XAttachPipe(Pipe pipe, bool icanhasall);
-        abstract protected void XTerminated(Pipe pipe);
-
-        /// <summary>
-        /// Throw exception if socket is disposed
-       /// </summary>  
-        public void CheckDisposed()
-        {
-            if (m_disposed)
-            {
-                throw new ObjectDisposedException(GetType().FullName);
-            }
-        }
-
-
-        public void CheckContextTerminated()
-        {
-            if (m_ctxTerminated)
-            {
-                throw new TerminatingException();
-            }
-        }
-
-        //  Create a socket of a specified type.
-        public static SocketBase Create(ZmqSocketType type, Ctx parent,int threadId, int socketId)
-        {
-            SocketBase socketBase;
+                    
             switch (type)
             {
                 case ZmqSocketType.Pair:
-                    socketBase = new Pair(parent, threadId, socketId);
+                    m_pattern = new Pair(this);
                     break;
                 case ZmqSocketType.Pub:
-                    socketBase = new Pub(parent, threadId, socketId);
+                    m_pattern = new Pub(this);
                     break;
                 case ZmqSocketType.Sub:
-                    socketBase = new Sub(parent, threadId, socketId);
+                    m_pattern = new Sub(this);
                     break;
                 case ZmqSocketType.Req:
-                    socketBase = new Req(parent, threadId, socketId);
+                    m_pattern = new Req(this);
                     break;
                 case ZmqSocketType.Rep:
-                    socketBase = new Rep(parent, threadId, socketId);
+                    m_pattern = new Rep(this);
                     break;
                 case ZmqSocketType.Dealer:
-                    socketBase = new Dealer(parent, threadId, socketId);
+                    m_pattern = new Dealer(this);
                     break;
                 case ZmqSocketType.Router:
-                    socketBase = new Router(parent, threadId, socketId);
+                    m_pattern = new Router(this);
                     break;
                 case ZmqSocketType.Pull:
-                    socketBase = new Pull(parent, threadId, socketId);
+                    m_pattern = new Pull(this);
                     break;
                 case ZmqSocketType.Push:
-                    socketBase = new Push(parent, threadId, socketId);
+                    m_pattern = new Push(this);
                     break;
-
                 case ZmqSocketType.Xpub:
-                    socketBase = new XPub(parent, threadId, socketId);
+                    m_pattern = new XPub(this);
                     break;
-
                 case ZmqSocketType.Xsub:
-                    socketBase = new XSub(parent, threadId, socketId);
+                    m_pattern = new XSub(this);
                     break;
                 case ZmqSocketType.Stream:
-                    socketBase = new Stream(parent, threadId, socketId);
+                    m_pattern = new Stream(this);
                     break;
                 default:
                     throw new InvalidException("type=" + type);
-            }
-            return socketBase;
+            }            
         }
 
-        public override void Destroy()
+        internal Options Options
         {
-            StopMonitor();
+            get { return m_options; }
+        }
 
-            Debug.Assert(m_destroyed);
+        public Socket Handle
+        {
+            get { return m_mailbox.Handle; }
         }
 
         //  Returns the mailbox associated with this socket.
         public Mailbox Mailbox
         {
             get { return m_mailbox; }
-        }
+        }          
 
-        //  Interrupt blocking call if the socket is stuck in one.
-        //  This function can be called from a different thread!
-        public void Stop()
+        //  Processes commands sent to this socket (if any). If timeout is -1,
+        //  returns only after at least one command was processed.
+        //  If throttle argument is true, commands are processed at most once
+        //  in a predefined time period.
+        private void ProcessCommands(int timeout, bool throttle)
         {
-            //  Called by ctx when it is terminated (zmq_term).
-            //  'stop' command is sent from the threads that called zmq_term to
-            //  the thread owning the socket. This way, blocking call in the
-            //  owner thread can be interrupted.
-            SendStop();
-
-        }
-
-        //  Check whether transport protocol, as specified in connect or
-        //  bind, is available and compatible with the socket type.
-        private void CheckProtocol(String protocol)
-        {
-            //  First check out whether the protcol is something we are aware of.
-            if (!protocol.Equals(Address.InProcProtocol) &&
-                !protocol.Equals(Address.IpcProtocol) && !protocol.Equals(Address.TcpProtocol) &&
-                !protocol.Equals(Address.PgmProtocol) && !protocol.Equals(Address.EpgmProtocol))
+            Command cmd;
+            if (timeout != 0)
             {
-                throw new ProtocolNotSupportedException();
+                //  If we are asked to wait, simply ask mailbox to wait.
+                cmd = m_mailbox.Recv(timeout);
+            }
+            else
+            {
+                //  If we are asked not to wait, check whether we haven't processed
+                //  commands recently, so that we can throttle the new commands.
+
+                //  Get the CPU's tick counter. If 0, the counter is not available.								
+                long tsc = Clock.Rdtsc();
+
+                //  Optimised version of command processing - it doesn't have to check
+                //  for incoming commands each time. It does so only if certain time
+                //  elapsed since last command processing. Command delay varies
+                //  depending on CPU speed: It's ~1ms on 3GHz CPU, ~2ms on 1.5GHz CPU
+                //  etc. The optimisation makes sense only on platforms where getting
+                //  a timestamp is a very cheap operation (tens of nanoseconds).
+                if (tsc != 0 && throttle)
+                {
+                    //  Check whether TSC haven't jumped backwards (in case of migration
+                    //  between CPU cores) and whether certain time have elapsed since
+                    //  last command processing. If it didn't do nothing.
+                    if (tsc >= m_lastProcessed && tsc - m_lastProcessed <= Config.MaxCommandDelay)
+                        return;
+                    m_lastProcessed = tsc;
+                }
+
+                //  Check whether there are any commands pending for this thread.
+                cmd = m_mailbox.Recv(0);
             }
 
-            //  Check whether socket type and transport protocol match.
-            //  Specifically, multicast protocols can't be combined with
-            //  bi-directional messaging patterns (socket types).
-            if ((protocol.Equals(Address.PgmProtocol) || protocol.Equals(Address.EpgmProtocol)) &&
-                            m_options.SocketType != ZmqSocketType.Pub && m_options.SocketType != ZmqSocketType.Sub &&
-                            m_options.SocketType != ZmqSocketType.Xpub && m_options.SocketType != ZmqSocketType.Xsub)
+            //  Process all the commands available at the moment.
+            while (true)
             {
-                throw new ProtocolNotSupportedException(protocol + ",type=" + m_options.SocketType);                
+                if (cmd == null)
+                    break;
+
+                cmd.Destination.ProcessCommand(cmd);
+                cmd = m_mailbox.Recv(0);
             }
 
-            //  Protocol is available.
-        }
+            CheckContextTerminated();
+        }             
 
-
-        //  Register the pipe with this socket.
-        private void AttachPipe(Pipe pipe)
-        {
-            AttachPipe(pipe, false);
-        }
-
-        private void AttachPipe(Pipe pipe, bool icanhasall)
-        {
-            //  First, register the pipe so that we can terminate it later on.
-
-            pipe.SetEventSink(this);
-            m_pipes.Add(pipe);
-
-            //  Let the derived socket type know about new pipe.
-            XAttachPipe(pipe, icanhasall);
-
-            //  If the socket is already being closed, ask any new pipes to terminate
-            //  straight away.
-            if (IsTerminating)
-            {
-                RegisterTermAcks(1);
-                pipe.Terminate(false);
-            }
-        }
+        #region Options
 
         public void SetSocketOption(ZmqSocketOptions option, Object optval)
         {
             CheckContextTerminated();
 
             //  First, check whether specific socket type overloads the option.
-            if (!XSetSocketOption(option, optval))
+            if (!m_pattern.SetOption(option, optval))
             {
                 //  If the socket type doesn't support the option, pass it to
                 //  the generic option parser.
@@ -272,7 +236,7 @@ namespace NetMQ.zmq
 
             if (option == ZmqSocketOptions.ReceiveMore)
             {
-                return m_rcvMore ? 1 : 0;
+                return m_receiveMore ? 1 : 0;
             }
             if (option == ZmqSocketOptions.Events)
             {
@@ -282,7 +246,7 @@ namespace NetMQ.zmq
                 }
                 catch (TerminatingException)
                 {
-                    return -1;                    
+                    return -1;
                 }
 
                 PollEvents val = 0;
@@ -302,7 +266,7 @@ namespace NetMQ.zmq
 
             if (option == ZmqSocketOptions.ReceiveMore)
             {
-                return m_rcvMore;
+                return m_receiveMore;
             }
 
             if (option == ZmqSocketOptions.Handle)
@@ -318,7 +282,7 @@ namespace NetMQ.zmq
                 }
                 catch (TerminatingException)
                 {
-                    return -1;                    
+                    return -1;
                 }
 
                 PollEvents val = 0;
@@ -333,6 +297,10 @@ namespace NetMQ.zmq
             return m_options.GetSocketOption(option);
 
         }
+
+        #endregion
+
+        #region Bind,Connect,Disconnect and Unbind
 
         public void Bind(String addr)
         {
@@ -617,19 +585,17 @@ namespace NetMQ.zmq
             // Save last endpoint URI
             m_options.LastEndpoint = paddr.ToString();
 
-            AddEndpoint(addr, session);
-            return;
+            AddEndpoint(addr, session);            
         }
 
-        private void DecodeAddress(string addr, out string address, out string protocol)
+        private void DecodeAddress(string address, out string addressPart, out string protocol)
         {
             const string protocolDelimeter = "://";
-            int protocolDelimeterIndex = addr.IndexOf(protocolDelimeter);
+            int protocolDelimeterIndex = address.IndexOf(protocolDelimeter);
 
-            protocol = addr.Substring(0, protocolDelimeterIndex);
-            address = addr.Substring(protocolDelimeterIndex + protocolDelimeter.Length);
+            protocol = address.Substring(0, protocolDelimeterIndex);
+            addressPart = address.Substring(protocolDelimeterIndex + protocolDelimeter.Length);
         }
-
 
         //  Creates new endpoint ID and adds the endpoint to the map.
         private void AddEndpoint(String addr, Own endpoint)
@@ -639,64 +605,148 @@ namespace NetMQ.zmq
             m_endpoints[addr] = endpoint;
         }
 
-        public void TermEndpoint(String addr)
+        public void Unbind(string address)
         {
-
-            CheckContextTerminated();
-
-            //  Check whether endpoint address passed to the function is valid.
-            if (addr == null)
+            if (address == null)
             {
-                throw new InvalidException();
+                throw new ArgumentNullException("address");
             }
+
+            TerminateEndpoint(address);
+
+            TerminateEndpoint(address);
+        }
+
+        public void Disconnect(string address)
+        {
+            if (address == null)
+            {
+                throw new ArgumentNullException("address");
+            }
+
+            TerminateEndpoint(address);
+        }
+
+        private void TerminateEndpoint(string address)
+        {
+            CheckContextTerminated();
 
             //  Process pending commands, if any, since there could be pending unprocessed process_own()'s
             //  (from launch_child() for example) we're asked to terminate now.
             ProcessCommands(0, false);
 
             string protocol;
-            string address;
+            string addressPart;
 
-            DecodeAddress(addr, out address, out protocol);
+            DecodeAddress(address, out addressPart, out protocol);
 
             CheckProtocol(protocol);
 
             if (protocol == Address.InProcProtocol)
             {
-                bool found = UnregisterEndpoint(addr, this);
+                bool found = UnregisterEndpoint(address, this);
 
                 if (!found)
                 {
-                    throw new EndpointNotFoundException("Endpoint was not found and cannot be disconnected");
-                }
+                    Pipe pipe;
 
-                Pipe pipe;
-
-                if (m_inprocs.TryGetValue(addr, out pipe))
-                {
-                    pipe.Terminate(true);
-                    m_inprocs.Remove(addr);
-                }
-                else
-                {
-                    throw new EndpointNotFoundException("Endpoint was not found and cannot be disconnected");
+                    if (m_inprocs.TryGetValue(address, out pipe))
+                    {
+                        pipe.Terminate(true);
+                        m_inprocs.Remove(address);
+                    }
+                    else
+                    {
+                        throw new EndpointNotFoundException("Endpoint was not found and cannot be disconnected");
+                    }
                 }
             }
             else
             {
                 Own endpoint;
 
-                if (m_endpoints.TryGetValue(addr, out endpoint))
+                if (m_endpoints.TryGetValue(address, out endpoint))
                 {
                     TermChild(endpoint);
 
-                    m_endpoints.Remove(addr);
+                    m_endpoints.Remove(address);
                 }
                 else
                 {
                     throw new EndpointNotFoundException("Endpoint was not found and cannot be disconnected");
                 }
             }
+        }
+
+        protected override void ProcessBind(Pipe pipe)
+        {
+            AttachPipe(pipe);
+        }
+
+        //  Check whether transport protocol, as specified in connect or
+        //  bind, is available and compatible with the socket type.
+        private void CheckProtocol(String protocol)
+        {
+            //  First check out whether the protcol is something we are aware of.
+            if (!protocol.Equals(Address.InProcProtocol) &&
+                !protocol.Equals(Address.IpcProtocol) && !protocol.Equals(Address.TcpProtocol) &&
+                !protocol.Equals(Address.PgmProtocol) && !protocol.Equals(Address.EpgmProtocol))
+            {
+                throw new ProtocolNotSupportedException();
+            }
+
+            //  Check whether socket type and transport protocol match.
+            //  Specifically, multicast protocols can't be combined with
+            //  bi-directional messaging patterns (socket types).
+            if ((protocol.Equals(Address.PgmProtocol) || protocol.Equals(Address.EpgmProtocol)) &&
+                            m_options.SocketType != ZmqSocketType.Pub && m_options.SocketType != ZmqSocketType.Sub &&
+                            m_options.SocketType != ZmqSocketType.Xpub && m_options.SocketType != ZmqSocketType.Xsub)
+            {
+                throw new ProtocolNotSupportedException(protocol + ",type=" + m_options.SocketType);
+            }
+
+            //  Protocol is available.
+        }
+
+
+        //  Register the pipe with this socket.
+        private void AttachPipe(Pipe pipe)
+        {
+            AttachPipe(pipe, false);
+        }
+
+        private void AttachPipe(Pipe pipe, bool subscribeToAll)
+        {
+            //  First, register the pipe so that we can terminate it later on.
+            pipe.SetEventSink(this);
+            m_pipes.Add(pipe);
+
+            //  Let the derived socket type know about new pipe.
+            m_pattern.AddPipe(pipe, subscribeToAll);
+
+            //  If the socket is already being closed, ask any new pipes to terminate
+            //  straight away.
+            if (IsTerminating)
+            {
+                RegisterTermAcks(1);
+                pipe.Terminate(false);
+            }
+        }
+
+        #endregion
+
+        #region Send/Receive
+
+        //  These functions are used by the polling mechanism to determine
+        //  which events are to be reported from this socket.
+        public bool HasIn()
+        {
+            return m_pattern.HasIn();
+        }
+
+        public bool HasOut()
+        {
+            return m_pattern.HasOut();
         }
 
         public void Send(ref Msg msg, SendReceiveOptions flags)
@@ -720,7 +770,7 @@ namespace NetMQ.zmq
                 msg.SetFlags(MsgFlags.More);
 
             //  Try to send the message.
-            bool isMessageSent = XSend(ref msg, flags);
+            bool isMessageSent = m_pattern.Send(ref msg, flags);
 
             if (isMessageSent)
             {
@@ -729,8 +779,8 @@ namespace NetMQ.zmq
 
             //  In case of non-blocking send we'll simply propagate
             //  the error - including EAGAIN - up the stack.
-            if ((flags & SendReceiveOptions.DontWait) > 0 || m_options.SendTimeout == 0)
-                throw new InvalidException();
+            if (flags.HasFlag(SendReceiveOptions.DontWait) || m_options.SendTimeout == 0)
+                throw new AgainException();
 
             //  Compute the time when the timeout should occur.
             //  If the timeout is infite, don't care. 
@@ -744,7 +794,7 @@ namespace NetMQ.zmq
             {
                 ProcessCommands(timeout, false);
 
-                isMessageSent = XSend(ref msg, flags);
+                isMessageSent = m_pattern.Send(ref msg, flags);
                 if (isMessageSent)
                     break;
 
@@ -759,7 +809,7 @@ namespace NetMQ.zmq
             }
         }
 
-        public void Recv(ref Msg msg, SendReceiveOptions flags)
+        public void Receive(ref Msg msg, SendReceiveOptions flags)
         {
             CheckContextTerminated();
 
@@ -770,7 +820,7 @@ namespace NetMQ.zmq
             }
 
             //  Get the message.
-            bool isMessageAvailable = XRecv(flags, ref msg);
+            bool isMessageAvailable = m_pattern.Receive(flags, ref msg);
 
             //  Once every inbound_poll_rate messages check for signals and process
             //  incoming commands. This happens only if we are not polling altogether
@@ -780,10 +830,10 @@ namespace NetMQ.zmq
             //  Note that 'recv' uses different command throttling algorithm (the one
             //  described above) from the one used by 'send'. This is because counting
             //  ticks is more efficient than doing RDTSC all the time.
-            if (++m_ticks == Config.InboundPollRate)
+            if (++m_receiveTicks == Config.InboundPollRate)
             {
                 ProcessCommands(0, false);
-                m_ticks = 0;
+                m_receiveTicks = 0;
             }
 
             //  If we have the message, return immediately.
@@ -797,12 +847,12 @@ namespace NetMQ.zmq
             //  For non-blocking recv, commands are processed in case there's an
             //  activate_reader command already waiting int a command pipe.
             //  If it's not, return EAGAIN.
-            if ((flags & SendReceiveOptions.DontWait) > 0 || m_options.ReceiveTimeout == 0)
+            if (flags.HasFlag(SendReceiveOptions.DontWait) || m_options.ReceiveTimeout == 0)
             {
                 ProcessCommands(0, false);
-                m_ticks = 0;
+                m_receiveTicks = 0;
 
-                isMessageAvailable = XRecv(flags, ref msg);
+                isMessageAvailable = m_pattern.Receive(flags, ref msg);
                 if (!isMessageAvailable)
                 {
                     throw new AgainException();
@@ -819,15 +869,16 @@ namespace NetMQ.zmq
 
             //  In blocking scenario, commands are processed over and over again until
             //  we are able to fetch a message.
-            bool block = (m_ticks != 0);
+            bool block = (m_receiveTicks != 0);
+
             while (true)
             {
                 ProcessCommands(block ? timeout : 0, false);
 
-                isMessageAvailable = XRecv(flags, ref msg);
+                isMessageAvailable = m_pattern.Receive(flags, ref msg);
                 if (isMessageAvailable)
                 {
-                    m_ticks = 0;
+                    m_receiveTicks = 0;
                     break;
                 }
 
@@ -845,7 +896,23 @@ namespace NetMQ.zmq
             ExtractFlags(ref msg);
         }
 
-        public void Close()
+        //  Moves the flags from the message to local variables,
+        //  to be later retrieved by getsockopt.
+        private void ExtractFlags(ref Msg msg)
+        {
+            //  Test whether IDENTITY flag is valid for this socket type.
+            if ((msg.Flags & MsgFlags.Identity) != 0)
+                Debug.Assert(m_options.RecvIdentity);
+
+            //  Remove MORE flag.
+            m_receiveMore = msg.HasMore;
+        }
+
+        #endregion
+        
+        #region Disposing
+
+        public void Dispose()
         {
             //  Mark the socket as disposed
             m_disposed = true;
@@ -855,19 +922,7 @@ namespace NetMQ.zmq
             //  process.
             SendReap(this);
         }
-
-        //  These functions are used by the polling mechanism to determine
-        //  which events are to be reported from this socket.
-        public bool HasIn()
-        {
-            return XHasIn();
-        }
-
-        public bool HasOut()
-        {
-            return XHasOut();
-        }
-
+     
         //  Using this function reaper thread ask the socket to register with
         //  its poller.
         internal void StartReaping(Utils.Poller poller)
@@ -883,63 +938,7 @@ namespace NetMQ.zmq
             Terminate();
             CheckDestroy();
         }
-
-        //  Processes commands sent to this socket (if any). If timeout is -1,
-        //  returns only after at least one command was processed.
-        //  If throttle argument is true, commands are processed at most once
-        //  in a predefined time period.
-        private void ProcessCommands(int timeout, bool throttle)
-        {
-            Command cmd;
-            if (timeout != 0)
-            {
-
-                //  If we are asked to wait, simply ask mailbox to wait.
-                cmd = m_mailbox.Recv(timeout);
-            }
-            else
-            {
-
-                //  If we are asked not to wait, check whether we haven't processed
-                //  commands recently, so that we can throttle the new commands.
-
-                //  Get the CPU's tick counter. If 0, the counter is not available.								
-                long tsc = Clock.Rdtsc();
-
-                //  Optimised version of command processing - it doesn't have to check
-                //  for incoming commands each time. It does so only if certain time
-                //  elapsed since last command processing. Command delay varies
-                //  depending on CPU speed: It's ~1ms on 3GHz CPU, ~2ms on 1.5GHz CPU
-                //  etc. The optimisation makes sense only on platforms where getting
-                //  a timestamp is a very cheap operation (tens of nanoseconds).
-                if (tsc != 0 && throttle)
-                {
-
-                    //  Check whether TSC haven't jumped backwards (in case of migration
-                    //  between CPU cores) and whether certain time have elapsed since
-                    //  last command processing. If it didn't do nothing.
-                    if (tsc >= m_lastTsc && tsc - m_lastTsc <= Config.MaxCommandDelay)
-                        return;
-                    m_lastTsc = tsc;
-                }
-
-                //  Check whether there are any commands pending for this thread.
-                cmd = m_mailbox.Recv(0);
-            }
-
-            //  Process all the commands available at the moment.
-            while (true)
-            {
-                if (cmd == null)
-                    break;
-
-                cmd.Destination.ProcessCommand(cmd);
-                cmd = m_mailbox.Recv(0);
-            }
-
-            CheckContextTerminated();
-        }
-
+      
         protected override void ProcessStop()
         {
             //  Here, someone have called zmq_term while the socket was still alive.
@@ -947,13 +946,8 @@ namespace NetMQ.zmq
             //  further attempt to use the socket will return ETERM. The user is still
             //  responsible for calling zmq_close on the socket though!
             StopMonitor();
-            m_ctxTerminated = true;
-        }
-
-        protected override void ProcessBind(Pipe pipe)
-        {
-            AttachPipe(pipe);
-        }
+            m_contextTerminated = true;
+        }       
 
         protected override void ProcessTerm(int linger)
         {
@@ -977,51 +971,7 @@ namespace NetMQ.zmq
             m_destroyed = true;
         }
 
-        //  The default implementation assumes there are no specific socket
-        //  options for the particular socket type. If not so, overload this
-        //  method.
-        protected virtual bool XSetSocketOption(ZmqSocketOptions option, Object optval)
-        {
-            return false;
-        }
-
-        protected virtual bool XHasOut()
-        {
-            return false;
-        }
-
-        protected virtual bool XSend(ref Msg msg, SendReceiveOptions flags)
-        {
-            throw new NotSupportedException("Must Override");
-        }
-
-        protected virtual bool XHasIn()
-        {
-            return false;
-        }
-
-
-        protected virtual bool XRecv(SendReceiveOptions flags, ref Msg msg)
-        {
-            throw new NotSupportedException("Must Override");
-        }
-
-        protected virtual void XReadActivated(Pipe pipe)
-        {
-            throw new NotSupportedException("Must Override");
-        }
-
-        protected virtual void XWriteActivated(Pipe pipe)
-        {
-            throw new NotSupportedException("Must Override");
-        }
-
-        protected virtual void XHiccuped(Pipe pipe)
-        {
-            throw new NotSupportedException("Must override");
-        }
-
-        public virtual void InEvent()
+        void IPollEvents.InEvent()
         {
             //  This function is invoked only once the socket is running in the context
             //  of the reaper thread. Process any commands from other threads/sockets
@@ -1036,17 +986,7 @@ namespace NetMQ.zmq
             {
                 CheckDestroy();
             }
-        }
-
-        public virtual void OutEvent()
-        {
-            throw new NotSupportedException();
-        }
-
-        public virtual void TimerEvent(int id)
-        {
-            throw new NotSupportedException();
-        }
+        }       
 
         //  To be called after processing commands or invoking any command
         //  handlers explicitly. If required, it will deallocate the socket.
@@ -1055,7 +995,6 @@ namespace NetMQ.zmq
             //  If the object was already marked as destroyed, finish the deallocation.
             if (m_destroyed)
             {
-
                 //  Remove the socket from the reaper's poller.
                 m_poller.RemoveHandle(m_handle);
                 //  Remove the socket from the context.
@@ -1066,35 +1005,54 @@ namespace NetMQ.zmq
 
                 //  Deallocate.
                 base.ProcessDestroy();
-
             }
         }
 
-        public void ReadActivated(Pipe pipe)
+        //  Interrupt blocking call if the socket is stuck in one.
+        //  This function can be called from a different thread!
+        public void Stop()
         {
-            XReadActivated(pipe);
+            //  Called by ctx when it is terminated (zmq_term).
+            //  'stop' command is sent from the threads that called zmq_term to
+            //  the thread owning the socket. This way, blocking call in the
+            //  owner thread can be interrupted.
+            SendStop();
         }
 
-        public void WriteActivated(Pipe pipe)
+        public override void Destroy()
         {
-            XWriteActivated(pipe);
+            StopMonitor();
+
+            Debug.Assert(m_destroyed);
         }
 
+        #endregion
 
-        public void Hiccuped(Pipe pipe)
+        #region Pipe Events
+
+        void Pipe.IPipeEvents.ReadActivated(Pipe pipe)
+        {
+            m_pattern.ReadActivated(pipe);
+        }
+
+        void Pipe.IPipeEvents.WriteActivated(Pipe pipe)
+        {
+            m_pattern.WriteActivated(pipe);
+        }
+
+        void Pipe.IPipeEvents.Hiccuped(Pipe pipe)
         {
             if (m_options.DelayAttachOnConnect)
                 pipe.Terminate(false);
             else
                 // Notify derived sockets of the hiccup
-                XHiccuped(pipe);
+                m_pattern.Hiccuped(pipe);
         }
 
-
-        public void Terminated(Pipe pipe)
+        void Pipe.IPipeEvents.Terminated(Pipe pipe)
         {
             //  Notify the specific socket type about the pipe termination.
-            XTerminated(pipe);
+            m_pattern.RemovePipe(pipe);
 
             // Remove pipe from inproc pipes
             var pipesToDelete = m_inprocs.Where(i => i.Value == pipe).Select(i => i.Key).ToArray();
@@ -1108,23 +1066,11 @@ namespace NetMQ.zmq
             m_pipes.Remove(pipe);
             if (IsTerminating)
                 UnregisterTermAck();
-
         }
 
+        #endregion       
 
-
-        //  Moves the flags from the message to local variables,
-        //  to be later retrieved by getsockopt.
-        private void ExtractFlags(ref Msg msg)
-        {
-            //  Test whether IDENTITY flag is valid for this socket type.
-            if ((msg.Flags & MsgFlags.Identity) != 0)
-                Debug.Assert(m_options.RecvIdentity);
-
-            //  Remove MORE flag.
-            m_rcvMore = msg.HasMore;
-        }
-
+        #region Monitor
 
         public void Monitor(String addr, SocketEvent events)
         {
@@ -1261,62 +1207,58 @@ namespace NetMQ.zmq
             MonitorEvent(new MonitorEvent(SocketEvent.Disconnected, addr, ch));
         }
 
-        protected void MonitorEvent(MonitorEvent monitorEvent)
+        private void MonitorEvent(MonitorEvent monitorEvent)
         {
-
             if (m_monitorSocket == null)
                 return;
 
             monitorEvent.Write(m_monitorSocket);
         }
 
-        protected void StopMonitor()
+        private void StopMonitor()
         {
-
             if (m_monitorSocket != null)
             {
-                m_monitorSocket.Close();
+                m_monitorSocket.Dispose();
                 m_monitorSocket = null;
                 m_monitorEvents = 0;
             }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Throw exception if socket is disposed
+        /// </summary>  
+        public void CheckDisposed()
+        {
+            if (m_disposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+        }
+
+        public void CheckContextTerminated()
+        {
+            if (m_contextTerminated)
+            {
+                throw new TerminatingException();
+            }
+        }
+
+        void IPollEvents.OutEvent()
+        {
+            throw new NotSupportedException();
+        }
+
+        void ITimerEvent.TimerEvent(int id)
+        {
+            throw new NotSupportedException();
         }
 
         public override String ToString()
         {
             return base.ToString() + "[" + m_options.SocketId + "]";
         }
-
-        public Socket Handle
-        {
-            get { return m_mailbox.Handle; }
-        }
-
-        public String GetTypeString()
-        {
-            switch (m_options.SocketType)
-            {
-                case ZmqSocketType.Pair:
-                    return "PAIR";
-                case ZmqSocketType.Pub:
-                    return "PUB";
-                case ZmqSocketType.Sub:
-                    return "SUB";
-                case ZmqSocketType.Req:
-                    return "REQ";
-                case ZmqSocketType.Rep:
-                    return "REP";
-                case ZmqSocketType.Dealer:
-                    return "DEALER";
-                case ZmqSocketType.Router:
-                    return "ROUTER";
-                case ZmqSocketType.Pull:
-                    return "PULL";
-                case ZmqSocketType.Push:
-                    return "PUSH";
-                default:
-                    return "UNKOWN";
-            }
-        }
-
     }
 }

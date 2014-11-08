@@ -35,15 +35,15 @@ namespace NetMQ.zmq.Patterns
         //  of the message must be empty message part (backtrace stack bottom).
         private bool m_messageBegins;
 
-        public Req(Ctx parent, int threadId, int socketId)
-            : base(parent, threadId, socketId)
+        public Req(SocketBase socket)
+            : base(socket)
         {
             m_receivingReply = false;
             m_messageBegins = true;
-            m_options.SocketType = ZmqSocketType.Req;
+            Options.SocketType = ZmqSocketType.Req;
         }
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             //  If we've sent a request and we still haven't got the reply,
             //  we can't send another request.
@@ -60,7 +60,7 @@ namespace NetMQ.zmq.Patterns
                 Msg bottom = new Msg();
                 bottom.InitEmpty();
                 bottom.SetFlags(MsgFlags.More);
-                isMessageSent = base.XSend(ref bottom, 0);
+                isMessageSent = base.Send(ref bottom, 0);
 
                 if (!isMessageSent)
                 {
@@ -72,7 +72,7 @@ namespace NetMQ.zmq.Patterns
 
             bool more = msg.HasMore;
 
-            isMessageSent = base.XSend(ref msg, flags);
+            isMessageSent = base.Send(ref msg, flags);
 
             if (!isMessageSent)
             {
@@ -88,7 +88,7 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {
             bool isMessageAvailable;
             
@@ -101,7 +101,7 @@ namespace NetMQ.zmq.Patterns
             //  First part of the reply should be the original request ID.
             if (m_messageBegins)
             {
-                isMessageAvailable = base.XRecv(flags, ref msg);
+                isMessageAvailable = base.Receive(flags, ref msg);
 
                 if (!isMessageAvailable)
                 {
@@ -112,7 +112,7 @@ namespace NetMQ.zmq.Patterns
                 {
                     while (true)
                     {
-                        isMessageAvailable = base.XRecv(flags, ref msg);
+                        isMessageAvailable = base.Receive(flags, ref msg);
                         Debug.Assert(isMessageAvailable);
                         if (!msg.HasMore)
                             break;
@@ -126,7 +126,7 @@ namespace NetMQ.zmq.Patterns
                 m_messageBegins = false;
             }
 
-            isMessageAvailable = base.XRecv(flags, ref msg);
+            isMessageAvailable = base.Receive(flags, ref msg);
             if (!isMessageAvailable)
             {
                 return false;
@@ -142,20 +142,20 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {            
             if (!m_receivingReply)
                 return false;
 
-            return base.XHasIn();
+            return base.HasIn();
         }
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             if (m_receivingReply)
                 return false;
 
-            return base.XHasOut();
+            return base.HasOut();
         }
 
         public class ReqSession : Dealer.DealerSession

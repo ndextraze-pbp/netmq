@@ -38,20 +38,20 @@ namespace NetMQ.zmq.Patterns
 
         }
 
-        public Pub(Ctx parent, int threadId, int socketId)
-            : base(parent, threadId, socketId)
+        public Pub(SocketBase socket)
+            : base(socket)
         {
 
-            m_options.SocketType = ZmqSocketType.Pub;
+            Options.SocketType = ZmqSocketType.Pub;
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {
             //  Messages cannot be received from PUB socket.
             throw new NotSupportedException("Messages cannot be received from PUB socket");
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {
             return false;
         }

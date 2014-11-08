@@ -8,8 +8,8 @@ namespace NetMQ.Sockets
     /// </summary>
     public class PairSocket : NetMQSocket
     {
-        public PairSocket(SocketBase socketHandle)
-            : base(socketHandle)
+        public PairSocket(SocketBase socketBase)
+            : base(socketBase)
         {
         }
     }

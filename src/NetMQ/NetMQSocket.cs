@@ -9,20 +9,21 @@ namespace NetMQ
 {
     public abstract class NetMQSocket : IOutgoingSocket, IReceivingSocket,ISocketPollable, IDisposable
     {
-        readonly SocketBase m_socketHandle;
+        readonly SocketBase m_socketBase;
         private bool m_isClosed = false;
+
+
         private NetMQSocketEventArgs m_socketEventArgs;
 
         private EventHandler<NetMQSocketEventArgs> m_receiveReady;
-
         private EventHandler<NetMQSocketEventArgs> m_sendReady;
 
         private Selector m_selector;
 
-        protected NetMQSocket(SocketBase socketHandle)
+        protected NetMQSocket(SocketBase socketBase)
         {
             m_selector = new Selector();
-            m_socketHandle = socketHandle;
+            m_socketBase = socketBase;
             Options = new SocketOptions(this);
             m_socketEventArgs = new NetMQSocketEventArgs(this);            
         }
@@ -89,7 +90,7 @@ namespace NetMQ
         {
             get
             {
-                return m_socketHandle;
+                return m_socketBase;
             }
         }
 
@@ -104,9 +105,9 @@ namespace NetMQ
         /// <param name="address">The address of the socket</param>
         public void Bind(string address)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            m_socketHandle.Bind(address);            
+            m_socketBase.Bind(address);            
         }
 
         /// <summary>
@@ -116,9 +117,9 @@ namespace NetMQ
         /// <returns>Chosen port number</returns>
         public int BindRandomPort(string address)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
             
-            return m_socketHandle.BindRandomPort(address);
+            return m_socketBase.BindRandomPort(address);
         }
 
         /// <summary>
@@ -127,9 +128,9 @@ namespace NetMQ
         /// <param name="address">Address to connect to</param>
         public void Connect(string address)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            m_socketHandle.Connect(address);            
+            m_socketBase.Connect(address);            
         }
 
         /// <summary>
@@ -138,9 +139,9 @@ namespace NetMQ
         /// <param name="address">The address to disconnect from</param>
         public void Disconnect(string address)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            m_socketHandle.TermEndpoint(address);
+            m_socketBase.Disconnect(address);
         }
 
         /// <summary>
@@ -149,9 +150,9 @@ namespace NetMQ
         /// <param name="address">The address to unbind from</param>
         public void Unbind(string address)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            m_socketHandle.TermEndpoint(address);
+            m_socketBase.Unbind(address);
         }
 
         /// <summary>
@@ -163,8 +164,8 @@ namespace NetMQ
             {
                 m_isClosed = true;
 
-                m_socketHandle.CheckDisposed();
-                m_socketHandle.Close();                
+                m_socketBase.CheckDisposed();
+                m_socketBase.Dispose();
             }
         }
 
@@ -243,12 +244,12 @@ namespace NetMQ
 
         public virtual void Receive(ref Msg msg, SendReceiveOptions options)
         {                        
-            m_socketHandle.Recv(ref msg, options);                        
+            m_socketBase.Receive(ref msg, options);                        
         }       
                     
         public virtual void Send(ref Msg msg, SendReceiveOptions options)
         {
-            m_socketHandle.Send(ref msg, options);
+            m_socketBase.Send(ref msg, options);
         }
 
         [Obsolete("Do not use this method if the socket is different from Subscriber and XSubscriber")]
@@ -287,9 +288,9 @@ namespace NetMQ
                 throw new ArgumentException("Unable to publish socket events to an empty endpoint.", "endpoint");
             }
 
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            m_socketHandle.Monitor(endpoint, events);
+            m_socketBase.Monitor(endpoint, events);
         }
 
         public bool HasIn
@@ -314,16 +315,16 @@ namespace NetMQ
 
         internal int GetSocketOption(ZmqSocketOptions socketOptions)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            return m_socketHandle.GetSocketOption(socketOptions);
+            return m_socketBase.GetSocketOption(socketOptions);
         }
 
         internal T GetSocketOptionX<T>(ZmqSocketOptions socketOptions)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            return (T)m_socketHandle.GetSocketOptionX(socketOptions);
+            return (T)m_socketBase.GetSocketOptionX(socketOptions);
         }
 
         internal TimeSpan GetSocketOptionTimeSpan(ZmqSocketOptions socketOptions)
@@ -338,9 +339,9 @@ namespace NetMQ
      
         internal void SetSocketOption(ZmqSocketOptions socketOptions, int value)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            m_socketHandle.SetSocketOption(socketOptions, value);
+            m_socketBase.SetSocketOption(socketOptions, value);
         }
 
         internal void SetSocketOptionTimeSpan(ZmqSocketOptions socketOptions, TimeSpan value)
@@ -350,9 +351,9 @@ namespace NetMQ
 
         internal void SetSocketOption(ZmqSocketOptions socketOptions, object value)
         {
-            m_socketHandle.CheckDisposed();
+            m_socketBase.CheckDisposed();
 
-            m_socketHandle.SetSocketOption(socketOptions, value);
+            m_socketBase.SetSocketOption(socketOptions, value);
         }
 
         public void Dispose()

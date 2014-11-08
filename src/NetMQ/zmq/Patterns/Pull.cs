@@ -24,7 +24,7 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Pull : SocketBase
+    class Pull : BasePattern
     {
         public class PullSession : SessionBase
         {
@@ -39,37 +39,58 @@ namespace NetMQ.zmq.Patterns
         //  Fair queueing object for inbound pipes.
         private readonly FairQueueing m_fairQueueing;
 
-        public Pull(Ctx parent, int threadId, int socketId) : base(parent, threadId, socketId)
+        public Pull(SocketBase socket)
+            : base(socket)
         {
-            m_options.SocketType = ZmqSocketType.Pull;
+            Options.SocketType = ZmqSocketType.Pull;
 
             m_fairQueueing = new FairQueueing();
         }
 
-        protected override void XAttachPipe(Pipe pipe, bool icanhasall)
+        public override void AddPipe(Pipe pipe, bool subscribeToAll)
         {
             Debug.Assert(pipe != null);
             m_fairQueueing.Attach(pipe);
         }
 
-        protected override void XReadActivated(Pipe pipe)
+        public override void ReadActivated(Pipe pipe)
         {
             m_fairQueueing.Activated(pipe);
         }
 
-        protected override void XTerminated(Pipe pipe)
+        public override void RemovePipe(Pipe pipe)
         {
             m_fairQueueing.Terminated(pipe);
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {
             return m_fairQueueing.Recv(ref msg);
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {
             return m_fairQueueing.HasIn();
+        }
+
+        public override bool HasOut()
+        {
+            return false;
+        }
+
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
+        {
+            throw new System.NotSupportedException();
+        }
+
+        public override void WriteActivated(Pipe pipe)
+        {
+            throw new System.NotSupportedException();
+        }
+
+        public override void Hiccuped(Pipe pipe)
+        {
+            throw new System.NotSupportedException();
         }
     }
 }

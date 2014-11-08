@@ -8,8 +8,8 @@ namespace NetMQ.Sockets
     /// </summary>
     public class PushSocket : NetMQSocket
     {
-        public PushSocket(SocketBase socketHandle)
-            : base(socketHandle)
+        public PushSocket(SocketBase socketBase)
+            : base(socketBase)
         {
         }
 

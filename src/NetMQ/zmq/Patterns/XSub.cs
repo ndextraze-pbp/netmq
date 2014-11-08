@@ -25,7 +25,7 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class XSub : SocketBase
+    class XSub : BasePattern
     {
         public class XSubSession : SessionBase
         {
@@ -80,15 +80,15 @@ namespace NetMQ.zmq.Patterns
             };
         }
 
-        public XSub(Ctx parent, int threadId, int socketId)
-            : base(parent, threadId, socketId)
+        public XSub(SocketBase socket)
+            : base(socket)
         {
 
-            m_options.SocketType = ZmqSocketType.Xsub;
+            Options.SocketType = ZmqSocketType.Xsub;
             m_hasMessage = false;
             m_more = false;
 
-            m_options.Linger = 0;
+            Options.Linger = 0;
             m_fairQueueing = new FairQueueing();
             m_distribution = new Distribution();
             m_subscriptions = new Trie();
@@ -97,13 +97,13 @@ namespace NetMQ.zmq.Patterns
             m_message.InitEmpty();
         }
 
-        public override void Destroy()
+        public override void Dispose()
         {
-            base.Destroy();
+            base.Dispose();
             m_message.Close();
-        }
+        }       
 
-        protected override void XAttachPipe(Pipe pipe, bool icanhasall)
+        public override void AddPipe(Pipe pipe, bool subscribeToAll)
         {
             Debug.Assert(pipe != null);
             m_fairQueueing.Attach(pipe);
@@ -114,30 +114,30 @@ namespace NetMQ.zmq.Patterns
             pipe.Flush();
         }
 
-        protected override void XReadActivated(Pipe pipe)
+        public override void ReadActivated(Pipe pipe)
         {
             m_fairQueueing.Activated(pipe);
         }
 
-        protected override void XWriteActivated(Pipe pipe)
+        public override void WriteActivated(Pipe pipe)
         {
             m_distribution.Activated(pipe);
         }
 
-        protected override void XTerminated(Pipe pipe)
+        public override void RemovePipe(Pipe pipe)
         {
             m_fairQueueing.Terminated(pipe);
             m_distribution.Terminated(pipe);
         }
 
-        protected override void XHiccuped(Pipe pipe)
+        public override void Hiccuped(Pipe pipe)
         {
             //  Send all the cached subscriptions to the hiccuped pipe.
             m_subscriptions.Apply(s_sendSubscription, pipe);
             pipe.Flush();
         }
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             byte[] data = msg.Data;
             int size = msg.Size;
@@ -173,13 +173,13 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             //  Subscription can be added/removed anytime.
             return true;
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {
             //  If there's already a message prepared by a previous call to zmq_poll,
             //  return it straight ahead.
@@ -210,7 +210,7 @@ namespace NetMQ.zmq.Patterns
 
                 //  Check whether the message matches at least one subscription.
                 //  Non-initial parts of the message are passed 
-                if (m_more || !m_options.Filter || Match(msg))
+                if (m_more || !Options.Filter || Match(msg))
                 {
                     m_more = msg.HasMore;
                     return true;
@@ -227,7 +227,7 @@ namespace NetMQ.zmq.Patterns
             }
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {
             //  There are subsequent parts of the partly-read message available.
             if (m_more)
@@ -254,7 +254,7 @@ namespace NetMQ.zmq.Patterns
                 }
 
                 //  Check whether the message matches at least one subscription.
-                if (!m_options.Filter || Match(m_message))
+                if (!Options.Filter || Match(m_message))
                 {
                     m_hasMessage = true;
                     return true;

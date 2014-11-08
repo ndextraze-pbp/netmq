@@ -8,8 +8,8 @@ namespace NetMQ.Sockets
     /// </summary>
     public class DealerSocket : NetMQSocket
     {
-        public DealerSocket(SocketBase socketHandle)
-            : base(socketHandle)
+        public DealerSocket(SocketBase socketBase)
+            : base(socketBase)
         {
         }
     }

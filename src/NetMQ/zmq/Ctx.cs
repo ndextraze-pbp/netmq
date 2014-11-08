@@ -255,7 +255,7 @@ namespace NetMQ.zmq
 
         public SocketBase CreateSocket(ZmqSocketType type)
         {
-            SocketBase s = null;
+            SocketBase socket = null;
             lock (m_slotSync)
             {
                 if (m_starting)
@@ -325,19 +325,15 @@ namespace NetMQ.zmq
                 int socketId = Interlocked.Increment(ref s_maxSocketId);
 
                 //  Create the socket and register its mailbox.
-                s = SocketBase.Create(type, this, slot, socketId);
-                if (s == null)
-                {
-                    m_emptySlots.Push(slot);
-                    return null;
-                }
-                m_sockets.Add(s);
-                m_slots[slot] = s.Mailbox;
+                // TODO: try catch exception and push slot back
+                socket = new SocketBase(type, this, slot, socketId);                
+                m_sockets.Add(socket);
+                m_slots[slot] = socket.Mailbox;
 
                 //LOG.debug("NEW Slot [" + slot + "] " + s);
             }
 
-            return s;
+            return socket;
         }
 
 

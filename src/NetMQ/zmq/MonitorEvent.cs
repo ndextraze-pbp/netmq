@@ -130,7 +130,7 @@ namespace NetMQ.zmq
             Msg msg = new Msg();
             msg.InitEmpty();
 
-            s.Recv(ref msg, SendReceiveOptions.None);
+            s.Receive(ref msg, SendReceiveOptions.None);
 
             int pos = 0;
             ByteArraySegment data = msg.Data;

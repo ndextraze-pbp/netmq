@@ -8,8 +8,8 @@ namespace NetMQ.Sockets
     /// </summary>
     public class RequestSocket : NetMQSocket
     {
-        public RequestSocket(SocketBase socketHandle)
-            : base(socketHandle)
+        public RequestSocket(SocketBase socketBase)
+            : base(socketBase)
         {
         }
     }

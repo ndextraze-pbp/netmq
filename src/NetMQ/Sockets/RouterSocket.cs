@@ -8,8 +8,8 @@ namespace NetMQ.Sockets
     /// </summary>
     public class RouterSocket : NetMQSocket
     {
-        public RouterSocket(SocketBase socketHandle)
-            : base(socketHandle)
+        public RouterSocket(SocketBase socketBase)
+            : base(socketBase)
         {
         }
     }

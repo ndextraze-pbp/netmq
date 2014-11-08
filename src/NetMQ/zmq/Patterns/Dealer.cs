@@ -21,11 +21,12 @@
 
 using System;
 using System.Diagnostics;
+using System.Net.Sockets;
 using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Dealer : SocketBase
+    class Dealer : BasePattern
     {
 
         public class DealerSession : SessionBase
@@ -50,30 +51,30 @@ namespace NetMQ.zmq.Patterns
         private Msg m_prefetchedMsg;
 
         //  Holds the prefetched message.
-        public Dealer(Ctx parent, int threadId, int socketId)
-            : base(parent, threadId, socketId)
+        public Dealer(SocketBase socket)
+            : base(socket)
         {
 
             m_prefetched = false;
-            m_options.SocketType = ZmqSocketType.Dealer;
+            Options.SocketType = ZmqSocketType.Dealer;
 
             m_fairQueueing = new FairQueueing();
             m_loadBalancer = new LoadBalancer();            
 
-            m_options.RecvIdentity = true;
+            Options.RecvIdentity = true;
 
             m_prefetchedMsg = new Msg();
             m_prefetchedMsg.InitEmpty();
         }
 
-        public override void Destroy()
+        public override void Dispose()
         {
-            base.Destroy();
+            base.Dispose();
 
             m_prefetchedMsg.Close();
         }
 
-        protected override void XAttachPipe(Pipe pipe, bool icanhasall)
+        public override void AddPipe(Pipe pipe, bool subscribeToAll)
         {
 
             Debug.Assert(pipe != null);
@@ -81,12 +82,12 @@ namespace NetMQ.zmq.Patterns
             m_loadBalancer.Attach(pipe);
         }
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             return m_loadBalancer.Send(ref msg, flags);
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {
             return ReceiveInternal(flags, ref msg);
         }
@@ -120,7 +121,7 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {
             //  We may already have a message pre-fetched.
             if (m_prefetched)
@@ -141,25 +142,30 @@ namespace NetMQ.zmq.Patterns
             }
         }
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             return m_loadBalancer.HasOut();
         }
 
-        protected override void XReadActivated(Pipe pipe)
+        public override void ReadActivated(Pipe pipe)
         {
             m_fairQueueing.Activated(pipe);
         }
 
-        protected override void XWriteActivated(Pipe pipe)
+        public override void WriteActivated(Pipe pipe)
         {
             m_loadBalancer.Activated(pipe);
         }
 
-        protected override void XTerminated(Pipe pipe)
+        public override void RemovePipe(Pipe pipe)
         {
             m_fairQueueing.Terminated(pipe);
             m_loadBalancer.Terminated(pipe);
+        }
+
+        public override void Hiccuped(Pipe pipe)
+        {
+            throw new NotSupportedException();
         }
     }
 }

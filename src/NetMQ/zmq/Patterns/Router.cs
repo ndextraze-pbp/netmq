@@ -27,7 +27,7 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Router : SocketBase
+    class Router : BasePattern
     {
         public class RouterSession : SessionBase
         {
@@ -93,7 +93,8 @@ namespace NetMQ.zmq.Patterns
 
         private bool m_rawSocket;
 
-        public Router(Ctx parent, int threadId, int socketId) : base(parent, threadId, socketId)
+        public Router(SocketBase socket)
+            : base(socket)
         {
             m_prefetched = false;
             m_identitySent = false;
@@ -104,7 +105,7 @@ namespace NetMQ.zmq.Patterns
             m_mandatory = false;
             m_rawSocket = false;
 
-            m_options.SocketType = ZmqSocketType.Router;
+            Options.SocketType = ZmqSocketType.Router;
 
             m_fairQueueing = new FairQueueing();
             m_prefetchedId = new Msg();
@@ -115,17 +116,17 @@ namespace NetMQ.zmq.Patterns
             m_anonymousPipes = new HashSet<Pipe>();
             m_outpipes = new Dictionary<Blob, Outpipe>();
          
-            m_options.RecvIdentity = true;
+            Options.RecvIdentity = true;
         }
 
-        public override void Destroy()
+        public override void Dispose()
         {
-            base.Destroy();
+            base.Dispose();
             m_prefetchedId.Close();
             m_prefetchedMsg.Close();
         }
 
-        protected override void XAttachPipe(Pipe pipe, bool icanhasall)
+        public override void AddPipe(Pipe pipe, bool subscribeToAll)
         {
             Debug.Assert(pipe != null);
 
@@ -137,15 +138,15 @@ namespace NetMQ.zmq.Patterns
         }
 
 
-        protected override bool XSetSocketOption(ZmqSocketOptions option, Object optval)
+        public override bool SetOption(ZmqSocketOptions option, Object optval)
         {            
             if (option == ZmqSocketOptions.RouterRawSocket)
             {
                 m_rawSocket = (bool)optval;
                 if (m_rawSocket)
                 {
-                    m_options.RecvIdentity = false;
-                    m_options.RawSocket = true;
+                    Options.RecvIdentity = false;
+                    Options.RawSocket = true;
                 }
 
                 return true;
@@ -159,7 +160,7 @@ namespace NetMQ.zmq.Patterns
             return false;
         }
 
-        protected override void XTerminated(Pipe pipe)
+        public override void RemovePipe(Pipe pipe)
         {
             if (!m_anonymousPipes.Remove(pipe))
             {
@@ -176,7 +177,7 @@ namespace NetMQ.zmq.Patterns
             }
         }
 
-        protected override void XReadActivated(Pipe pipe)
+        public override void ReadActivated(Pipe pipe)
         {
             if (!m_anonymousPipes.Contains(pipe))
                 m_fairQueueing.Activated(pipe);
@@ -191,7 +192,7 @@ namespace NetMQ.zmq.Patterns
             }
         }
 
-        protected override void XWriteActivated(Pipe pipe)
+        public override void WriteActivated(Pipe pipe)
         {
             Outpipe outpipe = null;
 
@@ -209,7 +210,7 @@ namespace NetMQ.zmq.Patterns
             Debug.Assert(outpipe != null);
         }
 
-        protected override bool XSend(ref Msg msg, SendReceiveOptions flags)
+        public override bool Send(ref Msg msg, SendReceiveOptions flags)
         {
             //  If this is the first part of the message it's the ID of the
             //  peer to send the message to.
@@ -258,7 +259,7 @@ namespace NetMQ.zmq.Patterns
                 return true;
             }
 
-            if (m_options.RawSocket)
+            if (Options.RawSocket)
             {
                 msg.ResetFlags(MsgFlags.More);
             }
@@ -301,7 +302,7 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XRecv(SendReceiveOptions flags, ref Msg msg)
+        public override bool Receive(SendReceiveOptions flags, ref Msg msg)
         {            
             if (m_prefetched)
             {
@@ -371,7 +372,7 @@ namespace NetMQ.zmq.Patterns
             }
         }
 
-        protected override bool XHasIn()
+        public override bool HasIn()
         {
             //  If we are in the middle of reading the messages, there are
             //  definitely more parts available.
@@ -416,7 +417,7 @@ namespace NetMQ.zmq.Patterns
             return true;
         }
 
-        protected override bool XHasOut()
+        public override bool HasOut()
         {
             //  In theory, ROUTER socket is always ready for writing. Whether actual
             //  attempt to write succeeds depends on whitch pipe the message is going
@@ -428,7 +429,7 @@ namespace NetMQ.zmq.Patterns
         {
             Blob identity;            
 
-            if (m_options.RawSocket)
+            if (Options.RawSocket)
             {
                 // Always assign identity for raw-socket
                 byte[] buf = new byte[5];
@@ -484,6 +485,11 @@ namespace NetMQ.zmq.Patterns
             m_outpipes.Add(identity, outpipe);
 
             return true;
+        }
+
+        public override void Hiccuped(Pipe pipe)
+        {
+            throw new NotSupportedException();
         }
     }
 }
