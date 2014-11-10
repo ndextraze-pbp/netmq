@@ -26,14 +26,14 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class XPub : BasePattern
+    class XPub : SocketBase
     {
 
         public class XPubSession : SessionBase
         {
 
             public XPubSession(IOThread ioThread, bool connect,
-                                                 SocketBase socket, Options options, Address addr) :
+                                                 NetMQSocket socket, Options options, Address addr) :
                 base(ioThread, connect, socket, options, addr)
             {
 
@@ -88,8 +88,8 @@ namespace NetMQ.zmq.Patterns
             };
         }
 
-        public XPub(SocketBase socket)
-            : base(socket)
+        public XPub(NetMQSocket socket, Options options)
+            : base(socket, options)
         {
 
             Options.SocketType = ZmqSocketType.Xpub;

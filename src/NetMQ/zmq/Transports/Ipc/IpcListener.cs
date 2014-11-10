@@ -28,7 +28,7 @@ namespace NetMQ.zmq.Transports.Ipc
 
         private readonly IpcAddress m_address;
 
-        public IpcListener(IOThread ioThread, SocketBase socket, Options options)
+        public IpcListener(IOThread ioThread, NetMQSocket socket, Options options)
             : base(ioThread, socket, options)
         {
             m_address = new IpcAddress();

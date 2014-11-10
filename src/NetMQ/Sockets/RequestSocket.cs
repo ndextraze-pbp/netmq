@@ -8,8 +8,7 @@ namespace NetMQ.Sockets
     /// </summary>
     public class RequestSocket : NetMQSocket
     {
-        public RequestSocket(SocketBase socketBase)
-            : base(socketBase)
+        public RequestSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Req, parent, threadId, socketId)
         {
         }
     }

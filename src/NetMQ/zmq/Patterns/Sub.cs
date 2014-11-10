@@ -30,7 +30,7 @@ namespace NetMQ.zmq.Patterns
         {
 
             public SubSession(IOThread ioThread, bool connect,
-                              SocketBase socket, Options options, Address addr)
+                              NetMQSocket socket, Options options, Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
 
@@ -38,8 +38,8 @@ namespace NetMQ.zmq.Patterns
 
         }
 
-        public Sub(SocketBase socket)
-            : base(socket)
+        public Sub(NetMQSocket socket, Options options)
+            : base(socket, options)
         {
             Options.SocketType = ZmqSocketType.Sub;
 

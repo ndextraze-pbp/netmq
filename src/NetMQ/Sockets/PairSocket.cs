@@ -8,8 +8,7 @@ namespace NetMQ.Sockets
     /// </summary>
     public class PairSocket : NetMQSocket
     {
-        public PairSocket(SocketBase socketBase)
-            : base(socketBase)
+        public PairSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Pair, parent, threadId, socketId)
         {
         }
     }

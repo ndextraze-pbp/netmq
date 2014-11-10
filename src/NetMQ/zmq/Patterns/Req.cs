@@ -35,8 +35,8 @@ namespace NetMQ.zmq.Patterns
         //  of the message must be empty message part (backtrace stack bottom).
         private bool m_messageBegins;
 
-        public Req(SocketBase socket)
-            : base(socket)
+        public Req(NetMQSocket socket, Options options)
+            : base(socket,options)
         {
             m_receivingReply = false;
             m_messageBegins = true;
@@ -170,7 +170,7 @@ namespace NetMQ.zmq.Patterns
             State m_state;
 
             public ReqSession(IOThread ioThread, bool connect,
-                                                SocketBase socket, Options options,
+                                                NetMQSocket socket, Options options,
                                                 Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {

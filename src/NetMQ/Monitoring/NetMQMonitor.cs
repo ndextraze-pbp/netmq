@@ -115,7 +115,7 @@ namespace NetMQ.Monitoring
 
         internal void Handle(object sender, NetMQSocketEventArgs socketEventArgs)
         {
-            MonitorEvent monitorEvent = MonitorEvent.Read(MonitoringSocket.SocketHandle);
+            MonitorEvent monitorEvent = MonitorEvent.Read(MonitoringSocket);
 
             if (monitorEvent != null)
             {

@@ -125,7 +125,7 @@ namespace NetMQ.zmq
         }
 
         override
-            protected void ProcessReap(SocketBase socket)
+            protected void ProcessReap(NetMQSocket socket)
         {
             //  Add the socket to the poller.
             socket.StartReaping(m_poller);

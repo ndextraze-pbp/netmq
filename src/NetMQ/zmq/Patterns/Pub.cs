@@ -30,7 +30,7 @@ namespace NetMQ.zmq.Patterns
         {
 
             public PubSession(IOThread ioThread, bool connect,
-                              SocketBase socket, Options options, Address addr)
+                              NetMQSocket socket, Options options, Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
 
@@ -38,8 +38,8 @@ namespace NetMQ.zmq.Patterns
 
         }
 
-        public Pub(SocketBase socket)
-            : base(socket)
+        public Pub(NetMQSocket socket, Options options)
+            : base(socket, options)
         {
 
             Options.SocketType = ZmqSocketType.Pub;

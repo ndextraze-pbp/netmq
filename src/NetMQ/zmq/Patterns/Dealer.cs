@@ -26,13 +26,13 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Dealer : BasePattern
+    class Dealer : SocketBase
     {
 
         public class DealerSession : SessionBase
         {
             public DealerSession(IOThread ioThread, bool connect,
-                                                     SocketBase socket, Options options,
+                                                     NetMQSocket socket, Options options,
                                                      Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
@@ -51,8 +51,8 @@ namespace NetMQ.zmq.Patterns
         private Msg m_prefetchedMsg;
 
         //  Holds the prefetched message.
-        public Dealer(SocketBase socket)
-            : base(socket)
+        public Dealer(NetMQSocket socket, Options options)
+            : base(socket, options)
         {
 
             m_prefetched = false;

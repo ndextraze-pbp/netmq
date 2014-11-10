@@ -8,10 +8,9 @@ namespace NetMQ.Sockets
 {
     public class StreamSocket : NetMQSocket
     {
-        public StreamSocket(SocketBase socketBase)
-            : base(socketBase)
+        public StreamSocket(Ctx parent, int threadId, int socketId) : 
+            base(ZmqSocketType.Stream, parent, threadId, socketId)
         {
         }
-
     }
 }

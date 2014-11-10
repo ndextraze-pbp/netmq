@@ -26,7 +26,7 @@ namespace NetMQ.zmq
     public interface IZmqMonitor
     {
 
-        void Monitor(SocketBase socket, int monitorEvent, Object[] args);
+        void Monitor(NetMQSocket socket, int monitorEvent, Object[] args);
 
     }
 }

@@ -42,13 +42,13 @@ namespace NetMQ.zmq
 
         public class Endpoint
         {
-            public Endpoint(SocketBase socket, Options options)
+            public Endpoint(NetMQSocket socket, Options options)
             {
                 Socket = socket;
                 Options = options;
             }
 
-            public SocketBase Socket { get; private set; }
+            public NetMQSocket Socket { get; private set; }
             public Options Options { get; private set; }
         }
 
@@ -57,7 +57,7 @@ namespace NetMQ.zmq
         //  Sockets belonging to this context. We need the list so that
         //  we can notify the sockets when zmq_term() is called. The sockets
         //  will return ETERM then.
-        private readonly List<SocketBase> m_sockets;
+        private readonly List<NetMQSocket> m_sockets;
 
         //  List of unused thread slots.
         private readonly Stack<int> m_emptySlots;
@@ -129,7 +129,7 @@ namespace NetMQ.zmq
 
             m_emptySlots = new Stack<int>();
             m_ioThreads = new List<IOThread>();
-            m_sockets = new List<SocketBase>();
+            m_sockets = new List<NetMQSocket>();
             m_endpoints = new Dictionary<string, Endpoint>();
         }
 
@@ -253,9 +253,9 @@ namespace NetMQ.zmq
             }
         }
 
-        public SocketBase CreateSocket(ZmqSocketType type)
+        public NetMQSocket CreateSocket(ZmqSocketType type)
         {
-            SocketBase socket = null;
+            NetMQSocket socket = null;
             lock (m_slotSync)
             {
                 if (m_starting)
@@ -326,7 +326,7 @@ namespace NetMQ.zmq
 
                 //  Create the socket and register its mailbox.
                 // TODO: try catch exception and push slot back
-                socket = new SocketBase(type, this, slot, socketId);                
+                socket = NetMQSocket.Create(type, this, slot, socketId);                
                 m_sockets.Add(socket);
                 m_slots[slot] = socket.Mailbox;
 
@@ -337,7 +337,7 @@ namespace NetMQ.zmq
         }
 
 
-        public void DestroySocket(SocketBase socket)
+        public void DestroySocket(NetMQSocket socket)
         {
             //  Free the associated thread slot.
             lock (m_slotSync)
@@ -415,7 +415,7 @@ namespace NetMQ.zmq
             }
         }
 
-        public bool UnregisterEndpoint(string addr, SocketBase socket)
+        public bool UnregisterEndpoint(string addr, NetMQSocket socket)
         {
             lock (m_endpointsSync)
             {
@@ -439,7 +439,7 @@ namespace NetMQ.zmq
             }
         }
 
-        public void UnregisterEndpoints(SocketBase socket)
+        public void UnregisterEndpoints(NetMQSocket socket)
         {
             lock (m_endpointsSync)
             {

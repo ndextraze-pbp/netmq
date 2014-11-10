@@ -27,12 +27,12 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Router : BasePattern
+    class Router : SocketBase
     {
         public class RouterSession : SessionBase
         {
             public RouterSession(IOThread ioThread, bool connect,
-                                 SocketBase socket, Options options,
+                                 NetMQSocket socket, Options options,
                                  Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
@@ -93,8 +93,8 @@ namespace NetMQ.zmq.Patterns
 
         private bool m_rawSocket;
 
-        public Router(SocketBase socket)
-            : base(socket)
+        public Router(NetMQSocket socket, Options options)
+            : base(socket,options)
         {
             m_prefetched = false;
             m_identitySent = false;

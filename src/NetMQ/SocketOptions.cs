@@ -30,7 +30,7 @@ namespace NetMQ
 
         public byte[] Identity
         {
-            get { return m_socket.GetSocketOptionX<byte[]>(ZmqSocketOptions.Identity); }
+            get { return (byte[])m_socket.GetSocketOptionX(ZmqSocketOptions.Identity); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.Identity, value); }
         }
 
@@ -59,7 +59,7 @@ namespace NetMQ
 
         public bool ReceiveMore
         {
-            get { return m_socket.GetSocketOptionX<bool>(ZmqSocketOptions.ReceiveMore); }
+            get { return m_socket.GetSocketOptionBoolean(ZmqSocketOptions.ReceiveMore); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.ReceiveMore, value); }
         }
 
@@ -125,15 +125,15 @@ namespace NetMQ
 
         public bool IPv4Only
         {
-            get { return m_socket.GetSocketOptionX<bool>(ZmqSocketOptions.IPv4Only); }
+            get { return m_socket.GetSocketOptionBoolean(ZmqSocketOptions.IPv4Only); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.IPv4Only, value); }
         }
 
-        public string GetLastEndpoint { get { return m_socket.GetSocketOptionX<string>(ZmqSocketOptions.LastEndpoint); } }
+        public string GetLastEndpoint { get { return (string)m_socket.GetSocketOptionX(ZmqSocketOptions.LastEndpoint); } }
 
         public bool RouterMandatory
         {
-            get { return m_socket.GetSocketOptionX<bool>(ZmqSocketOptions.RouterMandatory); }
+            get { return m_socket.GetSocketOptionBoolean(ZmqSocketOptions.RouterMandatory); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.RouterMandatory, value); }
         }
 
@@ -163,31 +163,31 @@ namespace NetMQ
 
         public string TcpAcceptFilter
         {
-            get { return m_socket.GetSocketOptionX<string>(ZmqSocketOptions.TcpAcceptFilter); }
+            get { return (string)m_socket.GetSocketOptionX(ZmqSocketOptions.TcpAcceptFilter); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.TcpKeepaliveIntvl, value); }
         }
 
         public bool DelayAttachOnConnect
         {
-            get { return m_socket.GetSocketOptionX<bool>(ZmqSocketOptions.DelayAttachOnConnect); }
+            get { return m_socket.GetSocketOptionBoolean(ZmqSocketOptions.DelayAttachOnConnect); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.DelayAttachOnConnect, value); }
         }
 
         public bool XPubVerbose
         {
-            get { return m_socket.GetSocketOptionX<bool>(ZmqSocketOptions.XpubVerbose); }
+            get { return m_socket.GetSocketOptionBoolean(ZmqSocketOptions.XpubVerbose); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.XpubVerbose, value); }
         }
 
         public bool RouterRawSocket
         {
-            get { return m_socket.GetSocketOptionX<bool>(ZmqSocketOptions.RouterRawSocket); }
+            get { return m_socket.GetSocketOptionBoolean(ZmqSocketOptions.RouterRawSocket); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.RouterRawSocket, value); }
         }
 
         public Endianness Endian
         {
-            get { return m_socket.GetSocketOptionX<Endianness>(ZmqSocketOptions.Endian); }
+            get { return (Endianness)m_socket.GetSocketOptionX(ZmqSocketOptions.Endian); }
             set { m_socket.SetSocketOption(ZmqSocketOptions.Endian, value); }
         }
 

@@ -65,7 +65,7 @@ namespace NetMQ.zmq.Transports.Tcp
         private readonly String m_endpoint;
 
         // Socket
-        private readonly SocketBase m_socket;
+        private readonly NetMQSocket m_socket;
 
         public TcpConnecter(IOThread ioThread, SessionBase session, Options options, Address addr, bool delayedStart)
             : base(ioThread, options)

@@ -23,13 +23,13 @@ using System.Diagnostics;
 
 namespace NetMQ.zmq.Patterns
 {
-    public class Pair : BasePattern
+    public class Pair : SocketBase
     {
 
         public class PairSession : SessionBase
         {
             public PairSession(IOThread ioThread, bool connect,
-                               SocketBase socket, Options options,
+                               NetMQSocket socket, Options options,
                                Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
@@ -39,8 +39,8 @@ namespace NetMQ.zmq.Patterns
 
         private Pipe m_pipe;
 
-        public Pair(SocketBase socket)
-            : base(socket)
+        public Pair(NetMQSocket socket, Options options)
+            : base(socket,options)
         {
             Options.SocketType = ZmqSocketType.Pair;
         }

@@ -17,7 +17,7 @@ namespace NetMQ
             private NetMQSocket m_socket;
 
             public PollerSelectItem(NetMQSocket socket, PollEvents events)
-                : base(socket.SocketHandle, events)
+                : base(socket, events)
             {
                 m_socket = socket;
             }
@@ -379,22 +379,7 @@ namespace NetMQ
 
                         if (item.Socket != null)
                         {
-                            NetMQSocket socket = m_pollact[itemNbr];
-
-                            if (item.ResultEvent.HasFlag(PollEvents.PollError) && !socket.IgnoreErrors)
-                            {
-                                socket.Errors++;
-
-                                if (socket.Errors > 1)
-                                {
-                                    RemoveSocket(socket);
-                                    item.ResultEvent = PollEvents.None;
-                                }
-                            }
-                            else
-                            {
-                                socket.Errors = 0;
-                            }
+                            NetMQSocket socket = m_pollact[itemNbr];                           
 
                             if (item.ResultEvent != PollEvents.None)
                             {

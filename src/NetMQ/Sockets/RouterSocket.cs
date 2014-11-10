@@ -8,8 +8,8 @@ namespace NetMQ.Sockets
     /// </summary>
     public class RouterSocket : NetMQSocket
     {
-        public RouterSocket(SocketBase socketBase)
-            : base(socketBase)
+        public RouterSocket(Ctx parent, int threadId, int socketId)
+            : base(ZmqSocketType.Router, parent, threadId, socketId)
         {
         }
     }

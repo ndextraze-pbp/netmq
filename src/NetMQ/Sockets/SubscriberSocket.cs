@@ -10,9 +10,9 @@ namespace NetMQ.Sockets
     /// </summary>
     public class SubscriberSocket : NetMQSocket
     {
-        public SubscriberSocket(SocketBase socketBase)
-            : base(socketBase)
+        public SubscriberSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Sub, parent, threadId, socketId)
         {
+
         }
 
         public override void Send(ref Msg msg, SendReceiveOptions options)

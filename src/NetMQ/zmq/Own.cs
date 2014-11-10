@@ -104,7 +104,7 @@ namespace NetMQ.zmq
         /// <summary> When another owned object wants to send command to this object it calls this function
         /// to let it know it should not shut down before the command is delivered. </summary>
         /// <remarks> This function may be called from a different thread! </remarks>
-        public void IncSeqnum()
+        internal void IncSeqnum()
         {
             Interlocked.Increment(ref m_sentSeqnum);
         }
@@ -231,12 +231,12 @@ namespace NetMQ.zmq
         //  register_tem_acks functions. When event occurs, call
         //  remove_term_ack. When number of pending acks reaches zero
         //  object will be deallocated.
-        public void RegisterTermAcks(int count)
+        internal void RegisterTermAcks(int count)
         {
             m_termAcks += count;
         }
 
-        public void UnregisterTermAck()
+        internal void UnregisterTermAck()
         {
             Debug.Assert(m_termAcks > 0);
             m_termAcks--;

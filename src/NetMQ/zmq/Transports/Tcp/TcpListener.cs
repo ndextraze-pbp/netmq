@@ -43,7 +43,7 @@ namespace NetMQ.zmq.Transports.Tcp
         private AsyncSocket m_acceptedSocket;
 
         //  Socket the listerner belongs to.
-        private readonly SocketBase m_socket;
+        private readonly NetMQSocket m_socket;
 
         // String representation of endpoint to bind to
         private String m_endpoint;
@@ -53,7 +53,7 @@ namespace NetMQ.zmq.Transports.Tcp
         // The port that was bound on
         private int m_port;
 
-        public TcpListener(IOThread ioThread, SocketBase socket, Options options) :
+        public TcpListener(IOThread ioThread, NetMQSocket socket, Options options) :
             base(ioThread, options)
         {
 

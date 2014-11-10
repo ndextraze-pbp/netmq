@@ -64,7 +64,6 @@
     <Compile Include="IOutgoingSocket.cs" />
     <Compile Include="Monitoring\NetMQMonitorEventArgs.cs" />
     <Compile Include="NetMQMessage.cs" />
-    <Compile Include="NetMQSocket.cs" />
     <Compile Include="NetMQContext.cs" />
     <Compile Include="NetMQSocketEventArgs.cs" />
     <Compile Include="Poller.cs" />
@@ -116,7 +115,7 @@
     <Compile Include="Sockets\XSubscriberSocket.cs" />
     <Compile Include="NetMQTimer.cs" />
     <Compile Include="zmq\Address.cs" />
-    <Compile Include="zmq\BasePattern.cs" />
+    <Compile Include="zmq\SocketBase.cs" />
     <Compile Include="zmq\Utils\AtomicCounter.cs" />
     <Compile Include="Blob.cs" />
     <Compile Include="BufferPool.cs" />
@@ -185,7 +184,7 @@
     <Compile Include="zmq\Patterns\Router.cs" />
     <Compile Include="zmq\SessionBase.cs" />
     <Compile Include="zmq\Utils\Signaler.cs" />
-    <Compile Include="zmq\SocketBase.cs" />
+    <Compile Include="NetMQSocket.cs" />
     <Compile Include="zmq\Patterns\Stream.cs" />
     <Compile Include="zmq\Transports\StreamEngine.cs" />
     <Compile Include="zmq\Patterns\Sub.cs" />

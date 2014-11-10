@@ -58,7 +58,7 @@ namespace NetMQ.zmq
         private IEngine m_engine;
 
         //  The socket the session belongs to.
-        private readonly SocketBase m_socket;
+        private readonly NetMQSocket m_socket;
 
         //  I/O thread the session is living in. It will be used to plug in
         //  the engines into the same thread.
@@ -80,7 +80,7 @@ namespace NetMQ.zmq
         private readonly IOObject m_ioObject;
 
         public static SessionBase Create(IOThread ioThread, bool connect,
-                                                                         SocketBase socket, Options options, Address addr)
+                                                                         NetMQSocket socket, Options options, Address addr)
         {
 
             SessionBase s;
@@ -142,7 +142,7 @@ namespace NetMQ.zmq
         }
 
         public SessionBase(IOThread ioThread, bool connect,
-                                             SocketBase socket, Options options, Address addr)
+                                             NetMQSocket socket, Options options, Address addr)
             : base(ioThread, options)
         {
             m_ioObject = new IOObject(ioThread);
@@ -353,7 +353,7 @@ namespace NetMQ.zmq
 
         }
 
-        public SocketBase Socket
+        public NetMQSocket Socket
         {
             get { return m_socket; }
         }

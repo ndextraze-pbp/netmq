@@ -25,12 +25,12 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Push : BasePattern
+    class Push : SocketBase
     {
         public class PushSession : SessionBase
         {
             public PushSession(IOThread ioThread, bool connect,
-                               SocketBase socket, Options options,
+                               NetMQSocket socket, Options options,
                                Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
@@ -40,8 +40,8 @@ namespace NetMQ.zmq.Patterns
         //  Load balancer managing the outbound pipes.
         private readonly LoadBalancer m_loadBalancer;
 
-        public Push(SocketBase socket)
-            : base(socket)
+        public Push(NetMQSocket socket, Options options)
+            : base(socket,options)
         {
             Options.SocketType = ZmqSocketType.Push;
 

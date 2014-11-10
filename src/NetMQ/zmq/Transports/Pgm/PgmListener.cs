@@ -13,7 +13,7 @@ namespace NetMQ.zmq.Transports.PGM
     {
         private PgmSocket m_pgmSocket;
 
-        private readonly SocketBase m_socket;
+        private readonly NetMQSocket m_socket;
 
         private AsyncSocket m_handle;
 
@@ -23,7 +23,7 @@ namespace NetMQ.zmq.Transports.PGM
 
         private PgmAddress m_address;
 
-        public PgmListener(IOThread ioThread, SocketBase socket, Options options)
+        public PgmListener(IOThread ioThread, NetMQSocket socket, Options options)
             : base(ioThread, options)
         {
             m_socket = socket;

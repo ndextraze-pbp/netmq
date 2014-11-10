@@ -8,8 +8,7 @@ namespace NetMQ.Sockets
     /// </summary>
     public class DealerSocket : NetMQSocket
     {
-        public DealerSocket(SocketBase socketBase)
-            : base(socketBase)
+        public DealerSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Dealer, parent, threadId, socketId)
         {
         }
     }

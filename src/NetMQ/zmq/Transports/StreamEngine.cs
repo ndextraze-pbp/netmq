@@ -127,7 +127,7 @@ namespace NetMQ.zmq.Transports
         private bool m_plugged;
 
         // Socket
-        private SocketBase m_socket;
+        private NetMQSocket m_socket;
 
         private IOObject m_ioObject;
 

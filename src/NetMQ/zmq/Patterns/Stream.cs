@@ -29,12 +29,12 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Stream : BasePattern
+    class Stream : SocketBase
     {
         public class StreamSession : SessionBase
         {
             public StreamSession(IOThread ioThread, bool connect,
-                                 SocketBase socket, Options options,
+                                 NetMQSocket socket, Options options,
                                  Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
@@ -83,8 +83,8 @@ namespace NetMQ.zmq.Patterns
         //  algorithm. This value is the next ID to use (if not used already).
         private int m_nextPeerId;
 
-        public Stream(SocketBase socket)
-            : base(socket)
+        public Stream(NetMQSocket socket, Options options)
+            : base(socket, options)
         {
             m_prefetched = false;
             m_identitySent = false;

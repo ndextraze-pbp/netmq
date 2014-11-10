@@ -8,8 +8,7 @@ namespace NetMQ.Sockets
     /// </summary>
     public class PushSocket : NetMQSocket
     {
-        public PushSocket(SocketBase socketBase)
-            : base(socketBase)
+        public PushSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Push, parent, threadId, socketId)
         {
         }
 

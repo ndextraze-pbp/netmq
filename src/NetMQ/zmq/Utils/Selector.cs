@@ -11,7 +11,7 @@ namespace NetMQ.zmq.Utils
 {
     class SelectItem
     {
-        public SelectItem(SocketBase socket, PollEvents @event)
+        public SelectItem(NetMQSocket socket, PollEvents @event)
         {
             Socket = socket;
             Event = @event;
@@ -24,7 +24,7 @@ namespace NetMQ.zmq.Utils
         }
 
         public Socket FileDescriptor { get;private set; } 
-        public SocketBase Socket { get; private set; }
+        public NetMQSocket Socket { get; private set; }
 
         public PollEvents Event { get; private set; }
 

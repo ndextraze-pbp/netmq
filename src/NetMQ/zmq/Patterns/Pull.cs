@@ -24,12 +24,12 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class Pull : BasePattern
+    class Pull : SocketBase
     {
         public class PullSession : SessionBase
         {
             public PullSession(IOThread ioThread, bool connect,
-                               SocketBase socket, Options options,
+                               NetMQSocket socket, Options options,
                                Address addr) : base(ioThread, connect, socket, options, addr)
             {
 
@@ -39,8 +39,8 @@ namespace NetMQ.zmq.Patterns
         //  Fair queueing object for inbound pipes.
         private readonly FairQueueing m_fairQueueing;
 
-        public Pull(SocketBase socket)
-            : base(socket)
+        public Pull(NetMQSocket socket, Options options)
+            : base(socket, options)
         {
             Options.SocketType = ZmqSocketType.Pull;
 

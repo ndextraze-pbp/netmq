@@ -15,7 +15,7 @@ namespace NetMQ.zmq.Transports.PGM
         private readonly Options m_options;
         private IOObject m_ioObject;
         private SessionBase m_session;
-        private SocketBase m_socket;
+        private NetMQSocket m_socket;
         private V1Decoder m_decoder;
         private bool m_joined;
 

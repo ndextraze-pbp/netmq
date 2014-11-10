@@ -8,8 +8,7 @@ namespace NetMQ.Sockets
     /// </summary>
     public class PublisherSocket : NetMQSocket
     {
-        public PublisherSocket(SocketBase socketBase)
-            : base(socketBase)
+        public PublisherSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Pub, parent, threadId, socketId)
         {
         }
 

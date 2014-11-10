@@ -50,7 +50,7 @@ namespace NetMQ.zmq
 
         protected Ctx Ctx { get { return m_ctx; } }
 
-        public void ProcessCommand(Command cmd)
+        internal void ProcessCommand(Command cmd)
         {
             switch (cmd.CommandType)
             {
@@ -112,7 +112,7 @@ namespace NetMQ.zmq
                     break;
 
                 case CommandType.Reap:
-                    ProcessReap((SocketBase)cmd.Arg);
+                    ProcessReap((NetMQSocket)cmd.Arg);
                     break;
 
                 case CommandType.Reaped:
@@ -130,12 +130,12 @@ namespace NetMQ.zmq
             return m_ctx.RegisterEndpoint(addr, endpoint);
         }
 
-        protected bool UnregisterEndpoint(string addr, SocketBase socket)
+        protected bool UnregisterEndpoint(string addr, NetMQSocket socket)
         {
             return m_ctx.UnregisterEndpoint(addr, socket);
         }
 
-        protected void UnregisterEndpoints(SocketBase socket)
+        protected void UnregisterEndpoints(NetMQSocket socket)
         {
             m_ctx.UnregisterEndpoints(socket);
         }
@@ -145,7 +145,7 @@ namespace NetMQ.zmq
             return m_ctx.FindEndpoint(addr);
         }
 
-        protected void DestroySocket(SocketBase socket)
+        protected void DestroySocket(NetMQSocket socket)
         {
             m_ctx.DestroySocket(socket);
         }
@@ -258,7 +258,7 @@ namespace NetMQ.zmq
             SendCommand(cmd);
         }
 
-        protected void SendReap(SocketBase socket)
+        protected void SendReap(NetMQSocket socket)
         {
             Command cmd = new Command(m_ctx.GetReaper(), CommandType.Reap, socket);
             SendCommand(cmd);
@@ -347,7 +347,7 @@ namespace NetMQ.zmq
             throw new NotSupportedException();
         }
 
-        protected virtual void ProcessReap(SocketBase socket)
+        protected virtual void ProcessReap(NetMQSocket socket)
         {
             throw new NotSupportedException();
         }

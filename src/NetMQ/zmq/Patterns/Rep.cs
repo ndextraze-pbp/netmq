@@ -29,7 +29,7 @@ namespace NetMQ.zmq.Patterns
         public class RepSession : Router.RouterSession
         {
             public RepSession(IOThread ioThread, bool connect,
-                              SocketBase socket, Options options,
+                              NetMQSocket socket, Options options,
                               Address addr)
                 : base(ioThread, connect, socket, options, addr)
             {
@@ -44,8 +44,8 @@ namespace NetMQ.zmq.Patterns
         private bool m_requestBegins;
 
 
-        public Rep(SocketBase socket)
-            : base(socket)
+        public Rep(NetMQSocket socket,Options options)
+            : base(socket,options)
         {
 
             m_sendingReply = false;

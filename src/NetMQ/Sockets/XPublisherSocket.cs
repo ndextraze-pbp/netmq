@@ -5,8 +5,7 @@ namespace NetMQ.Sockets
 {
     public class XPublisherSocket : NetMQSocket
     {
-        public XPublisherSocket(SocketBase socketBase)
-            : base(socketBase)
+        public XPublisherSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Xpub, parent, threadId, socketId)
         {
         }
     }

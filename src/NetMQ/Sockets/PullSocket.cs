@@ -8,8 +8,7 @@ namespace NetMQ.Sockets
     /// </summary>
     public class PullSocket : NetMQSocket
     {
-        public PullSocket(SocketBase socketBase)
-            : base(socketBase)
+        public PullSocket(Ctx parent, int threadId, int socketId) : base(ZmqSocketType.Pull, parent, threadId, socketId)
         {
         }
 

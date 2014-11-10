@@ -25,13 +25,13 @@ using NetMQ.zmq.Patterns.Utils;
 
 namespace NetMQ.zmq.Patterns
 {
-    class XSub : BasePattern
+    class XSub : SocketBase
     {
         public class XSubSession : SessionBase
         {
 
             public XSubSession(IOThread ioThread, bool connect,
-                               SocketBase socket, Options options, Address addr) :
+                               NetMQSocket socket, Options options, Address addr) :
                 base(ioThread, connect, socket, options, addr)
             {
             }
@@ -80,8 +80,8 @@ namespace NetMQ.zmq.Patterns
             };
         }
 
-        public XSub(SocketBase socket)
-            : base(socket)
+        public XSub(NetMQSocket socket, Options options)
+            : base(socket, options)
         {
 
             Options.SocketType = ZmqSocketType.Xsub;
