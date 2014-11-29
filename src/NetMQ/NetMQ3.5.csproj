@@ -50,6 +50,13 @@
     <Compile Include="InterfaceCollection.cs" />
     <Compile Include="ISocketPollable.cs" />
     <Compile Include="IReceivingSocket.cs" />
+    <Compile Include="ErrorCode.cs" />
+    <Compile Include="EventDelegator.cs" />
+    <Compile Include="InterfaceCollection.cs" />
+    <Compile Include="ISocketPollable.cs" />
+    <Compile Include="IReceivingSocket.cs" />
+    <Compile Include="Msg.cs" />
+    <Compile Include="NetMQActor.cs" />
     <Compile Include="NetworkOrderBitsConverter.cs" />
     <Compile Include="OutgoingSocketExtensions.cs" />
     <Compile Include="ErrorPollingException.cs" />
