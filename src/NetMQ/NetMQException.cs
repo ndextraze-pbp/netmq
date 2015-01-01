@@ -4,6 +4,7 @@ using NetMQ.zmq;
 
 namespace NetMQ
 {
+    [Serializable]
     public class NetMQException : Exception
     {
         protected NetMQException(ErrorCode errorCode)
@@ -68,6 +69,7 @@ namespace NetMQ
         }
     }
 
+    [Serializable]
     public class AgainException : NetMQException
     {
         internal AgainException(string message)
@@ -86,6 +88,7 @@ namespace NetMQ
         }
     }
 
+    [Serializable]
     public class TerminatingException : NetMQException
     {
         internal TerminatingException(string message)
@@ -104,6 +107,7 @@ namespace NetMQ
         }
     }
 
+    [Serializable]
     public class InvalidException : NetMQException
     {
         internal InvalidException(string message)
