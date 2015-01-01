@@ -107,10 +107,14 @@ namespace NetMQ
                     m_self.Bind(endPoint);
                     break;
                 }
-                catch (AddressAlreadyInUseException)
+                catch (NetMQException nex)
                 {
                     // In case address already in use we continue searching for an adderess
-                }
+                    if (nex.ErrorCode != ErrorCode.EFAULT)
+                    {
+                        throw;
+                    }
+                }                
             }
 
             m_shim.Connect(endPoint);

@@ -317,7 +317,7 @@ namespace NetMQ.zmq
 
             if (option == ZmqSocketOptions.ReceiveMore)
             {
-                return m_rcvMore ? 1 : 0;
+                return m_rcvMore;
             }
 
             if (option == ZmqSocketOptions.FD)
