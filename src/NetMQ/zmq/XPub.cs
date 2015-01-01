@@ -158,7 +158,7 @@ namespace NetMQ.zmq
             {
                 throw InvalidException.Create();
             }
-            m_verbose = (int)optval == 1;
+            m_verbose = (bool)optval;
         }
 
         protected override void XTerminated(Pipe pipe)
