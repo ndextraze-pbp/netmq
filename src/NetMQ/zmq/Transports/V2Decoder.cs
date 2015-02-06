@@ -97,7 +97,7 @@ namespace NetMQ.zmq.Transports
                 }
 
             //  Message size must fit within range of size_t data type.
-            if (msg_size > int.MaxValue)
+            if (msg_size > int.MaxValue || msg_size < 0)
             {
                 DecodingError();
                 return false;
